@@ -3,8 +3,8 @@ package v1_test
 import (
 	"io"
 	"lucky_project/config"
-	"lucky_project/internal/router"
-	"lucky_project/pkg/db"
+	"lucky_project/infrastructure/db"
+	"lucky_project/router"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,7 +17,7 @@ var testRouter *gin.Engine
 
 func TestMain(m *testing.M) {
 	// 切换到项目根目录读取配置
-	os.Chdir("../../../")
+	os.Chdir("../..")
 
 	// 初始化配置
 	if err := config.InitConfig(); err != nil {

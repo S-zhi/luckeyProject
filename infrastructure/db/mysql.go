@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"lucky_project/config"
-	"lucky_project/internal/entity"
+	entity2 "lucky_project/entity"
 	"net/url"
 	"strings"
 	"time"
@@ -70,9 +70,9 @@ func InitDB() error {
 
 func ensureTables(db *gorm.DB) error {
 	models := []interface{}{
-		&entity.Model{},
-		&entity.Dataset{},
-		&entity.ModelTrainingResult{},
+		&entity2.Model{},
+		&entity2.Dataset{},
+		&entity2.ModelTrainingResult{},
 	}
 
 	for _, m := range models {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 	"lucky_project/config"
-	"lucky_project/internal/router"
-	"lucky_project/pkg/db"
+	"lucky_project/infrastructure/db"
+	"lucky_project/router"
 )
 
 func main() {

@@ -53,10 +53,6 @@
   - `weight_sort`: 权重大小排序 (`asc`: 升序, `desc`: 降序)
 - **示例**: `/v1/models?algorithm=YOLOv8&weight_sort=desc`
 
-### 3.3 上传模型到网盘
-- **接口**: `POST /models/:id/upload`
-- **说明**: 将指定 ID 模型的权重文件上传至百度网盘。
-
 ---
 
 ## 4. 数据集接口 (Datasets)
@@ -83,10 +79,6 @@
   - `storage_type`: 存储类型 (1:本地, 2:OSS, 3:S3)
   - `annotation_type`: 标注格式 (1:YOLO, 2:COCO, 3:VOC)
   - `is_latest`: 是否最新 (true/false)
-
-### 4.3 压缩并上传数据集
-- **接口**: `POST /datasets/:id/upload`
-- **说明**: 自动将 `dataset_path` 文件夹压缩为 `.zip` 并上传至百度网盘。
 
 ---
 
@@ -117,15 +109,6 @@
   - `training_model_id`: 关联的模型 ID
   - `training_dataset_id`: 关联的数据集 ID
   - `training_status`: 训练状态 (1:训练中, 2:成功, 3:失败, 4:中断)
-
-### 5.3 上传产出权重
-- **接口**: `POST /training-results/:id/upload`
-- **请求体**:
-```json
-{
-  "remote_path": "/remote/path/best_weight.pt"
-}
-```
 
 ---
 

@@ -3,8 +3,8 @@ package dao
 import (
 	"context"
 	"fmt"
-	"lucky_project/internal/entity"
-	"lucky_project/pkg/db"
+	entity2 "lucky_project/entity"
+	"lucky_project/infrastructure/db"
 	"strings"
 
 	"gorm.io/gorm"
@@ -20,7 +20,7 @@ func NewDatasetDAO() *DatasetDAO {
 	}
 }
 
-func (d *DatasetDAO) Save(ctx context.Context, dataset *entity.Dataset) error {
+func (d *DatasetDAO) Save(ctx context.Context, dataset *entity2.Dataset) error {
 	if dataset == nil {
 		return ErrNilEntity
 	}
@@ -32,7 +32,7 @@ func (d *DatasetDAO) Save(ctx context.Context, dataset *entity.Dataset) error {
 	return dbConn.Create(dataset).Error
 }
 
-func (d *DatasetDAO) FindByID(ctx context.Context, id uint) (*entity.Dataset, error) {
+func (d *DatasetDAO) FindByID(ctx context.Context, id uint) (*entity2.Dataset, error) {
 	if id == 0 {
 		return nil, ErrInvalidID
 	}
@@ -42,13 +42,13 @@ func (d *DatasetDAO) FindByID(ctx context.Context, id uint) (*entity.Dataset, er
 		return nil, fmt.Errorf("find dataset by id failed: %w", err)
 	}
 
-	var dataset entity.Dataset
+	var dataset entity2.Dataset
 	err = dbConn.First(&dataset, id).Error
 	return &dataset, err
 }
 
-func (d *DatasetDAO) FindAll(ctx context.Context, params entity.QueryParams) ([]entity.Dataset, int64, error) {
-	var datasets []entity.Dataset
+func (d *DatasetDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]entity2.Dataset, int64, error) {
+	var datasets []entity2.Dataset
 	var total int64
 
 	dbConn, err := withContext(d.DB, ctx)
@@ -56,7 +56,7 @@ func (d *DatasetDAO) FindAll(ctx context.Context, params entity.QueryParams) ([]
 		return nil, 0, fmt.Errorf("find datasets failed: %w", err)
 	}
 
-	dbConn = dbConn.Model(&entity.Dataset{})
+	dbConn = dbConn.Model(&entity2.Dataset{})
 
 	// 1. 基础模糊搜索
 	if keyword := strings.TrimSpace(params.Keyword); keyword != "" {

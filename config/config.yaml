@@ -7,7 +7,3 @@ db:
   user: kara
   password: "@Wd3dad28dlvn396"
   dbname: luckydb
-baidu:
-  access_token: "your_access_token_here"
-  shard_size: 4194304 # 4MB
-
