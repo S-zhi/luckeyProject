@@ -60,24 +60,35 @@ func (d *DatasetDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([
 
 	// 1. 基础模糊搜索
 	if keyword := strings.TrimSpace(params.Keyword); keyword != "" {
-		dbConn = dbConn.Where("dataset_name LIKE ? OR description LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+		dbConn = dbConn.Where("name LIKE ? OR description LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
 	}
 
 	// 2. 指标组合过滤
 	if name := strings.TrimSpace(params.Name); name != "" {
-		dbConn = dbConn.Where("dataset_name = ?", name)
+		dbConn = dbConn.Where("name = ?", name)
 	}
-	if params.DatasetType != nil {
-		dbConn = dbConn.Where("dataset_type = ?", *params.DatasetType)
+
+	if storageServer := strings.TrimSpace(params.StorageServer); storageServer != "" {
+		dbConn = dbConn.Where("storage_server = ?", storageServer)
 	}
-	if params.IsLatest != nil {
-		dbConn = dbConn.Where("is_latest = ?", *params.IsLatest)
+	if taskType := strings.TrimSpace(params.TaskType); taskType != "" {
+		dbConn = dbConn.Where("task_type = ?", taskType)
+	} else if params.DatasetType != nil {
+		if mappedTaskType := mapDatasetTypeToTaskType(*params.DatasetType); mappedTaskType != "" {
+			dbConn = dbConn.Where("task_type = ?", mappedTaskType)
+		}
 	}
-	if params.StorageType != nil {
-		dbConn = dbConn.Where("storage_type = ?", *params.StorageType)
+	if datasetFormat := strings.TrimSpace(params.DatasetFormat); datasetFormat != "" {
+		dbConn = dbConn.Where("dataset_format = ?", datasetFormat)
 	}
-	if params.AnnotationType != nil {
-		dbConn = dbConn.Where("annotation_type = ?", *params.AnnotationType)
+	if configPath := strings.TrimSpace(params.ConfigPath); configPath != "" {
+		dbConn = dbConn.Where("config_path = ?", configPath)
+	}
+	if version := strings.TrimSpace(params.Version); version != "" {
+		dbConn = dbConn.Where("version = ?", version)
+	}
+	if params.NumClasses != nil {
+		dbConn = dbConn.Where("num_classes = ?", *params.NumClasses)
 	}
 
 	// 3. 获取总数
@@ -87,11 +98,40 @@ func (d *DatasetDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([
 	}
 
 	// 4. 执行分页查询 (默认 ID 降序)
+	orderStr := "id DESC"
+	sortValue := strings.ToLower(strings.TrimSpace(params.SizeSort))
+	if sortValue == "" {
+		sortValue = strings.ToLower(strings.TrimSpace(params.WeightSort))
+	}
+	switch sortValue {
+	case "asc":
+		orderStr = "size_mb ASC"
+	case "desc":
+		orderStr = "size_mb DESC"
+	}
+
 	offset, limit := pagination(params)
-	err = dbConn.Order("id DESC").Offset(offset).Limit(limit).Find(&datasets).Error
+	err = dbConn.Order(orderStr).Offset(offset).Limit(limit).Find(&datasets).Error
 	if err != nil {
 		return nil, 0, fmt.Errorf("query datasets failed: %w", err)
 	}
 
 	return datasets, total, err
+}
+
+func mapDatasetTypeToTaskType(datasetType int8) string {
+	switch datasetType {
+	case 1:
+		return "detect"
+	case 2:
+		return "segment"
+	case 3:
+		return "classify"
+	case 4:
+		return "pose"
+	case 5:
+		return "obb"
+	default:
+		return ""
+	}
 }
