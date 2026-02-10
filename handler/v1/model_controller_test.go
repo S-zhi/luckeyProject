@@ -3,9 +3,11 @@ package v1_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	entity2 "lucky_project/entity"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -14,12 +16,14 @@ func TestModelAPI(t *testing.T) {
 	// 1. 测试创建模型
 	t.Run("Create Model", func(t *testing.T) {
 		model := entity2.Model{
-			ModelName:    "TestModel_v1",
-			ModelType:    1,
-			ModelVersion: 1.0,
-			Algorithm:    "YOLOv8",
-			Framework:    "PyTorch",
-			WeightPath:   "/tmp/test_weight.pt",
+			Name:          fmt.Sprintf("TestModel_%d", time.Now().UnixNano()),
+			StorageServer: "nas-01",
+			ModelPath:     "/tmp/test_weight.pt",
+			ImplType:      "yolo_ultralytics",
+			DatasetID:     1,
+			SizeMB:        95.5,
+			Version:       "v1.0.0",
+			TaskType:      "detect",
 		}
 		body, _ := json.Marshal(model)
 		w := performRequest(testRouter, "POST", "/v1/models", bytes.NewBuffer(body))
@@ -28,7 +32,7 @@ func TestModelAPI(t *testing.T) {
 
 		var resp entity2.Model
 		json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.Equal(t, model.ModelName, resp.ModelName)
+		assert.Equal(t, model.Name, resp.Name)
 		assert.True(t, resp.ID > 0)
 	})
 
@@ -45,7 +49,7 @@ func TestModelAPI(t *testing.T) {
 
 	// 3. 测试组合过滤
 	t.Run("Filter Models", func(t *testing.T) {
-		w := performRequest(testRouter, "GET", "/v1/models?algorithm=YOLOv8&framework=PyTorch", nil)
+		w := performRequest(testRouter, "GET", "/v1/models?impl_type=yolo_ultralytics&task_type=detect", nil)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 
@@ -56,7 +60,7 @@ func TestModelAPI(t *testing.T) {
 
 	// 4. 测试排序
 	t.Run("Sort Models", func(t *testing.T) {
-		w := performRequest(testRouter, "GET", "/v1/models?weight_sort=desc", nil)
+		w := performRequest(testRouter, "GET", "/v1/models?size_sort=desc", nil)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 	})

@@ -7,26 +7,35 @@ type QueryParams struct {
 	Keyword  string `form:"keyword"`   // 搜索关键字 (模糊匹配名称等)
 	Name     string `form:"name"`      // 过滤字段：名称
 
-	// 模型特有过滤指标 (支持组合多选指标，每个指标为单选形式)
-	ModelType    *int8  `form:"model_type"`     // 模型类型 (1:检测, 2:分割等)
-	IsLatest     *bool  `form:"is_latest"`      // 是否最新
-	IsBasicModel *bool  `form:"is_basic_model"` // 是否基础模型
-	Algorithm    string `form:"algorithm"`      // 算法
-	Framework    string `form:"framework"`      // 框架
-	DatasetID    *uint  `form:"dataset_id"`     // 数据集ID
+	// models 表过滤字段
+	StorageServer string `form:"storage_server"`
+	TaskType      string `form:"task_type"`
+	ImplType      string `form:"impl_type"`
+	Version       string `form:"version"`
+	DatasetID     *uint  `form:"dataset_id"`
+	TrainTaskID   *uint  `form:"train_task_id"`
+	BaseModelID   *uint  `form:"base_model_id"`
+	SizeSort      string `form:"size_sort"` // size_mb 排序: asc|desc
+
+	// 兼容旧参数
+	Algorithm  string `form:"algorithm"`   // 兼容映射到 impl_type
+	WeightSort string `form:"weight_sort"` // 兼容映射到 size_mb 排序
 
 	// 数据集特有过滤指标
-	DatasetType    *int8 `form:"dataset_type"`    // 数据集类型 (1:检测, 2:分割等)
-	StorageType    *int8 `form:"storage_type"`    // 存储类型 (1:本地, 2:OSS等)
-	AnnotationType *int8 `form:"annotation_type"` // 标注格式 (1:YOLO, 2:COCO等)
+	DatasetFormat string `form:"dataset_format"`
+	ConfigPath    string `form:"config_path"`
+	NumClasses    *uint  `form:"num_classes"`
+
+	// 兼容旧数据集参数
+	DatasetType    *int8 `form:"dataset_type"`    // 兼容映射到 task_type
+	IsLatest       *bool `form:"is_latest"`       // 新结构无此字段，保留兼容
+	StorageType    *int8 `form:"storage_type"`    // 新结构无此字段，保留兼容
+	AnnotationType *int8 `form:"annotation_type"` // 新结构无此字段，保留兼容
 
 	// 训练结果特有过滤指标
 	TrainingModelID   *uint `form:"training_model_id"`   // 训练关联的模型ID
 	TrainingDatasetID *uint `form:"training_dataset_id"` // 训练关联的数据集ID
 	TrainingStatus    *int8 `form:"training_status"`     // 训练状态
-
-	// 排序字段
-	WeightSort string `form:"weight_sort"` // 权重大小 (WeightSizeMB) 排序: "asc" 或 "desc"
 }
 
 // GetOffset 计算数据库偏移量
