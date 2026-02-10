@@ -16,7 +16,6 @@ type Dataset struct {
 	DatasetPath    string    `gorm:"column:dataset_path" json:"dataset_path"`       // 数据集存储路径 (对应之前的 LocalPath)
 	AnnotationType int8      `gorm:"column:annotation_type" json:"annotation_type"` // 标注格式 1:YOLO｜2:COCO｜3:VOC
 	Description    string    `gorm:"column:description" json:"description"`         // 数据集描述
-	RemotePath     string    `gorm:"-" json:"remote_path"`                          // 百度网盘路径 (非数据库字段)
 	CreateTime     time.Time `gorm:"column:create_time;autoCreateTime" json:"create_time"`
 	UpdateTime     time.Time `gorm:"column:update_time;autoUpdateTime" json:"update_time"`
 }

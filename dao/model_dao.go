@@ -3,8 +3,8 @@ package dao
 import (
 	"context"
 	"fmt"
-	"lucky_project/internal/entity"
-	"lucky_project/pkg/db"
+	entity2 "lucky_project/entity"
+	"lucky_project/infrastructure/db"
 	"strings"
 
 	"gorm.io/gorm"
@@ -20,7 +20,7 @@ func NewModelDAO() *ModelDAO {
 	}
 }
 
-func (d *ModelDAO) Save(ctx context.Context, model *entity.Model) error {
+func (d *ModelDAO) Save(ctx context.Context, model *entity2.Model) error {
 	if model == nil {
 		return ErrNilEntity
 	}
@@ -32,7 +32,7 @@ func (d *ModelDAO) Save(ctx context.Context, model *entity.Model) error {
 	return dbConn.Create(model).Error
 }
 
-func (d *ModelDAO) FindByID(ctx context.Context, id uint) (*entity.Model, error) {
+func (d *ModelDAO) FindByID(ctx context.Context, id uint) (*entity2.Model, error) {
 	if id == 0 {
 		return nil, ErrInvalidID
 	}
@@ -42,13 +42,13 @@ func (d *ModelDAO) FindByID(ctx context.Context, id uint) (*entity.Model, error)
 		return nil, fmt.Errorf("find model by id failed: %w", err)
 	}
 
-	var model entity.Model
+	var model entity2.Model
 	err = dbConn.First(&model, id).Error
 	return &model, err
 }
 
-func (d *ModelDAO) FindAll(ctx context.Context, params entity.QueryParams) ([]entity.Model, int64, error) {
-	var models []entity.Model
+func (d *ModelDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]entity2.Model, int64, error) {
+	var models []entity2.Model
 	var total int64
 
 	dbConn, err := withContext(d.DB, ctx)
@@ -56,7 +56,7 @@ func (d *ModelDAO) FindAll(ctx context.Context, params entity.QueryParams) ([]en
 		return nil, 0, fmt.Errorf("find models failed: %w", err)
 	}
 
-	dbConn = dbConn.Model(&entity.Model{})
+	dbConn = dbConn.Model(&entity2.Model{})
 
 	// 1. 基础模糊搜索
 	if keyword := strings.TrimSpace(params.Keyword); keyword != "" {

@@ -3,8 +3,8 @@ package dao
 import (
 	"context"
 	"fmt"
-	"lucky_project/internal/entity"
-	"lucky_project/pkg/db"
+	entity2 "lucky_project/entity"
+	"lucky_project/infrastructure/db"
 
 	"gorm.io/gorm"
 )
@@ -19,7 +19,7 @@ func NewTrainingResultDAO() *TrainingResultDAO {
 	}
 }
 
-func (d *TrainingResultDAO) Save(ctx context.Context, result *entity.ModelTrainingResult) error {
+func (d *TrainingResultDAO) Save(ctx context.Context, result *entity2.ModelTrainingResult) error {
 	if result == nil {
 		return ErrNilEntity
 	}
@@ -31,7 +31,7 @@ func (d *TrainingResultDAO) Save(ctx context.Context, result *entity.ModelTraini
 	return dbConn.Create(result).Error
 }
 
-func (d *TrainingResultDAO) FindByID(ctx context.Context, id uint) (*entity.ModelTrainingResult, error) {
+func (d *TrainingResultDAO) FindByID(ctx context.Context, id uint) (*entity2.ModelTrainingResult, error) {
 	if id == 0 {
 		return nil, ErrInvalidID
 	}
@@ -41,13 +41,13 @@ func (d *TrainingResultDAO) FindByID(ctx context.Context, id uint) (*entity.Mode
 		return nil, fmt.Errorf("find training result by id failed: %w", err)
 	}
 
-	var result entity.ModelTrainingResult
+	var result entity2.ModelTrainingResult
 	err = dbConn.First(&result, id).Error
 	return &result, err
 }
 
-func (d *TrainingResultDAO) FindAll(ctx context.Context, params entity.QueryParams) ([]entity.ModelTrainingResult, int64, error) {
-	var results []entity.ModelTrainingResult
+func (d *TrainingResultDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]entity2.ModelTrainingResult, int64, error) {
+	var results []entity2.ModelTrainingResult
 	var total int64
 
 	dbConn, err := withContext(d.DB, ctx)
@@ -55,7 +55,7 @@ func (d *TrainingResultDAO) FindAll(ctx context.Context, params entity.QueryPara
 		return nil, 0, fmt.Errorf("find training results failed: %w", err)
 	}
 
-	dbConn = dbConn.Model(&entity.ModelTrainingResult{})
+	dbConn = dbConn.Model(&entity2.ModelTrainingResult{})
 
 	// 1. 指标组合过滤
 	if params.TrainingModelID != nil {

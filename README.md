@@ -1,12 +1,12 @@
 # Lucky Project - Gin 四层架构示例项目
 
-本项目是一个基于 Go 语言和 Gin 框架开发的 RESTful API 示例项目，采用了标准的四层架构设计（Controller, Service, DAO, Entity），支持远程数据库配置。
+本项目是一个基于 Go 语言和 Gin 框架开发的 RESTful API 示例项目，采用了标准的四层架构设计（Handler, Service, DAO, Entity），支持远程数据库配置。
 
 ## 1. 项目架构
 
 项目严格遵循以下四层架构，以实现逻辑解耦和高可维护性：
 
-- **Controller (控制层)**: 负责处理 HTTP 请求，绑定 URL 参数，并调用 Service 层。
+- **Handler (处理层)**: 负责处理 HTTP 请求，绑定 URL 参数，并调用 Service 层。
 - **Service (业务逻辑层)**: 存放核心业务逻辑，封装分页结果。
 - **DAO (数据访问层)**: 负责与数据库交互，执行分页、过滤和模糊搜索。
 - **Entity (实体层)**: 定义数据库模型及通用查询 DTO。
@@ -98,19 +98,14 @@
 - **POST `/v1/models`**: 保存模型实体
 - **GET `/v1/models`**: 分页查询模型列表
     - 示例 (组合查询): `/v1/models?algorithm=yolov8&framework=pytorch&weight_sort=desc`
-- **POST `/v1/models/:id/upload`**: 上传模型文件到百度网盘
-- **GET `/v1/models/remote-files`**: 查询百度网盘上的模型文件列表
 
 ### 数据集 (Datasets)
 - **POST `/v1/datasets`**: 保存数据集实体
 - **GET `/v1/datasets`**: 分页查询数据集列表
-- **POST `/v1/datasets/:id/upload`**: 压缩并上传数据集文件夹到百度网盘
-- **GET `/v1/datasets/remote-files`**: 查询百度网盘上的数据集列表
 
 ### 训练结果 (Training Results)
 - **POST `/v1/training-results`**: 保存训练结果
 - **GET `/v1/training-results`**: 分页查询训练结果
-- **POST `/v1/training-results/:id/upload`**: 上传产出权重文件到百度网盘
 
 ## 4. 响应格式
 
@@ -149,7 +144,7 @@ go run main.go
 ### 自动化测试 (Go Test)
 执行以下命令运行全量接口集成测试：
 ```bash
-go test -v ./internal/controller/v1/...
+go test -v ./internal/handler/v1/...
 ```
 
 ### 手动快速测试 (Shell Script)

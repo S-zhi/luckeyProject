@@ -1,15 +1,15 @@
 package router
 
 import (
-	v1 "lucky_project/internal/controller/v1"
+	v2 "lucky_project/handler/v1"
 
 	"github.com/gin-gonic/gin"
 )
 
 func SetupRouter() *gin.Engine {
-	modelController := v1.NewModelController()
-	datasetController := v1.NewDatasetController()
-	trainingController := v1.NewTrainingResultController()
+	modelController := v2.NewModelController()
+	datasetController := v2.NewDatasetController()
+	trainingController := v2.NewTrainingResultController()
 
 	r := gin.Default()
 	r.Use(gin.Recovery())
@@ -21,8 +21,6 @@ func SetupRouter() *gin.Engine {
 		{
 			models.POST("", modelController.CreateModel)
 			models.GET("", modelController.GetAllModels)
-			models.POST("/:id/upload", modelController.UploadModel)
-			models.GET("/remote-files", modelController.ListRemoteFiles)
 		}
 
 		// Dataset routes
@@ -30,8 +28,6 @@ func SetupRouter() *gin.Engine {
 		{
 			datasets.POST("", datasetController.CreateDataset)
 			datasets.GET("", datasetController.GetAllDatasets)
-			datasets.POST("/:id/upload", datasetController.UploadDataset)
-			datasets.GET("/remote-files", datasetController.ListRemoteFiles)
 		}
 
 		// Training Result routes
@@ -39,7 +35,6 @@ func SetupRouter() *gin.Engine {
 		{
 			trainings.POST("", trainingController.CreateTrainingResult)
 			trainings.GET("", trainingController.GetAllResults)
-			trainings.POST("/:id/upload", trainingController.UploadWeight)
 		}
 	}
 

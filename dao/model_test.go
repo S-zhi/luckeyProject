@@ -4,9 +4,9 @@ import (
 	"context"
 	"log"
 	"lucky_project/config"
-	"lucky_project/internal/dao"
-	"lucky_project/internal/entity"
-	"lucky_project/pkg/db"
+	"lucky_project/dao"
+	"lucky_project/entity"
+	"lucky_project/infrastructure/db"
 	"os"
 	"testing"
 	"time"
@@ -16,7 +16,7 @@ import (
 
 func TestMain(m *testing.M) {
 	// 切换到项目根目录读取配置
-	os.Chdir("../../")
+	os.Chdir("..")
 
 	// 初始化配置
 	if err := config.InitConfig(); err != nil {

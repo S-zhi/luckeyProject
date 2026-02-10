@@ -10,7 +10,6 @@ import (
 type Config struct {
 	Server ServerConfig `yaml:"server"`
 	DB     DBConfig     `yaml:"db"`
-	Baidu  BaiduConfig  `yaml:"baidu"`
 }
 
 type ServerConfig struct {
@@ -24,11 +23,6 @@ type DBConfig struct {
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
 	DBName   string `yaml:"dbname"`
-}
-
-type BaiduConfig struct {
-	AccessToken string `yaml:"access_token"`
-	ShardSize   int64  `yaml:"shard_size"`
 }
 
 var AppConfig *Config

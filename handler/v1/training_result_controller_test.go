@@ -3,7 +3,7 @@ package v1_test
 import (
 	"bytes"
 	"encoding/json"
-	"lucky_project/internal/entity"
+	entity2 "lucky_project/entity"
 	"net/http"
 	"testing"
 
@@ -13,7 +13,7 @@ import (
 func TestTrainingResultAPI(t *testing.T) {
 	// 1. 测试创建训练结果
 	t.Run("Create Training Result", func(t *testing.T) {
-		result := entity.ModelTrainingResult{
+		result := entity2.ModelTrainingResult{
 			ModelID:        1,
 			DatasetID:      1,
 			DatasetVersion: 1.0,
@@ -27,7 +27,7 @@ func TestTrainingResultAPI(t *testing.T) {
 
 		assert.Equal(t, http.StatusCreated, w.Code)
 
-		var resp entity.ModelTrainingResult
+		var resp entity2.ModelTrainingResult
 		json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.Equal(t, result.ModelID, resp.ModelID)
 		assert.True(t, resp.ID > 0)
@@ -39,7 +39,7 @@ func TestTrainingResultAPI(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code)
 
-		var result entity.PageResult
+		var result entity2.PageResult
 		json.Unmarshal(w.Body.Bytes(), &result)
 		assert.True(t, result.Total >= 1)
 	})

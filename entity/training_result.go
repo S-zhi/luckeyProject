@@ -16,7 +16,6 @@ type ModelTrainingResult struct {
 	CometLogURL    string          `gorm:"column:comet_log_url" json:"comet_log_url"`           // Comet 实验日志URL
 	TrainStartTime *time.Time      `gorm:"column:train_start_time" json:"train_start_time"`
 	TrainEndTime   *time.Time      `gorm:"column:train_end_time" json:"train_end_time"`
-	RemotePath     string          `gorm:"-" json:"remote_path"` // 百度网盘路径 (非数据库字段)
 	CreateTime     time.Time       `gorm:"column:create_time;autoCreateTime" json:"create_time"`
 }
 

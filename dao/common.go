@@ -3,7 +3,7 @@ package dao
 import (
 	"context"
 	"errors"
-	"lucky_project/internal/entity"
+	"lucky_project/entity"
 
 	"gorm.io/gorm"
 )

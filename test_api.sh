@@ -55,6 +55,3 @@ echo -e "\n"
 echo "=== 6. 测试训练结果过滤查询 ==="
 curl -X GET "$BASE_URL/training-results?training_status=2"
 echo -e "\n"
-
-echo "=== 7. 测试百度云上传 (需要 ID，这里演示路径) ==="
-echo "请手动测试: curl -X POST $BASE_URL/models/1/upload"

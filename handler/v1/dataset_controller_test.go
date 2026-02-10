@@ -3,7 +3,7 @@ package v1_test
 import (
 	"bytes"
 	"encoding/json"
-	"lucky_project/internal/entity"
+	entity2 "lucky_project/entity"
 	"net/http"
 	"testing"
 
@@ -13,7 +13,7 @@ import (
 func TestDatasetAPI(t *testing.T) {
 	// 1. 测试创建数据集
 	t.Run("Create Dataset", func(t *testing.T) {
-		dataset := entity.Dataset{
+		dataset := entity2.Dataset{
 			DatasetName:    "TestDataset_v1",
 			DatasetType:    1,
 			DatasetVersion: 1.0,
@@ -27,7 +27,7 @@ func TestDatasetAPI(t *testing.T) {
 
 		assert.Equal(t, http.StatusCreated, w.Code)
 
-		var resp entity.Dataset
+		var resp entity2.Dataset
 		json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.Equal(t, dataset.DatasetName, resp.DatasetName)
 		assert.True(t, resp.ID > 0)
@@ -39,7 +39,7 @@ func TestDatasetAPI(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code)
 
-		var result entity.PageResult
+		var result entity2.PageResult
 		json.Unmarshal(w.Body.Bytes(), &result)
 		assert.True(t, result.Total >= 1)
 	})

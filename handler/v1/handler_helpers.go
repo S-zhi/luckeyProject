@@ -2,23 +2,12 @@ package v1
 
 import (
 	"errors"
-	"fmt"
-	"lucky_project/internal/dao"
+	"lucky_project/dao"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
-
-func parseIDParam(ctx *gin.Context, paramName string) (uint, error) {
-	rawID := ctx.Param(paramName)
-	id, err := strconv.ParseUint(rawID, 10, 64)
-	if err != nil || id == 0 {
-		return 0, fmt.Errorf("%w: %s", dao.ErrInvalidID, rawID)
-	}
-	return uint(id), nil
-}
 
 func writeHTTPError(ctx *gin.Context, err error) {
 	switch {
