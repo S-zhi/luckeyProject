@@ -1,0 +1,13 @@
+server:
+  port: 8080
+db:
+  driver: mysql
+  host: 115.190.248.44
+  port: 3306
+  user: kara
+  password: "@Wd3dad28dlvn396"
+  dbname: luckydb
+baidu:
+  access_token: "your_access_token_here"
+  shard_size: 4194304 # 4MB
+
