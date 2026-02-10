@@ -2,6 +2,7 @@ package router
 
 import (
 	v2 "lucky_project/handler/v1"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -11,8 +12,16 @@ func SetupRouter() *gin.Engine {
 	datasetController := v2.NewDatasetController()
 	trainingController := v2.NewTrainingResultController()
 
-	r := gin.Default()
-	r.Use(gin.Recovery())
+	r := gin.New()
+	r.Use(gin.Logger(), gin.Recovery())
+	_ = r.SetTrustedProxies(nil)
+
+	r.NoRoute(func(c *gin.Context) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "route not found"})
+	})
+	r.NoMethod(func(c *gin.Context) {
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})
+	})
 
 	v1Group := r.Group("/v1")
 	{

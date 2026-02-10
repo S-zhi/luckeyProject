@@ -6,9 +6,16 @@ import (
 	"lucky_project/config"
 	"lucky_project/infrastructure/db"
 	"lucky_project/router"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	// 默认使用 release，避免线上以 debug 模式启动
+	if gin.Mode() == gin.DebugMode {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	// 1. Initialize configuration
 	if err := config.InitConfig(); err != nil {
 		log.Fatalf("Init config failed: %v", err)
