@@ -54,6 +54,7 @@ func SetupRouter() *gin.Engine {
 			models.GET("/:id/storage-server", modelController.GetModelStorageServers)
 			models.PATCH("/:id/storage-server", modelController.UpdateModelStorageServers)
 			models.POST("/upload", modelController.UploadModelFile)
+			models.DELETE("/by-filename", modelController.DeleteModelByFileName)
 		}
 
 		// Dataset routes

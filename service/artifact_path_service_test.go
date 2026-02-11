@@ -1,7 +1,6 @@
 package service
 
 import (
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,7 +27,9 @@ func TestArtifactPathServiceGenerateStoredFileName(t *testing.T) {
 
 	name, err := svc.GenerateStoredFileName("yolov7_HRW_4.2k", "origin.pt")
 	assert.NoError(t, err)
+	assert.Equal(t, "yolov7_HRW_4.2k.pt", name)
 
-	pattern := regexp.MustCompile(`^yolov7_HRW_4\.2k_[a-f0-9]{12}\.pt$`)
-	assert.True(t, pattern.MatchString(name), name)
+	name2, err := svc.GenerateStoredFileName("", "yolo26n_v6.0.onnx")
+	assert.NoError(t, err)
+	assert.Equal(t, "yolo26n_v6.0.onnx", name2)
 }

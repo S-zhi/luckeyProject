@@ -210,6 +210,36 @@ func (d *ModelDAO) FindFileNameByID(ctx context.Context, id uint) (string, error
 	return d.FindWeightNameByID(ctx, id)
 }
 
+// UpdateWeightSizeByWeightName 按权重文件名更新模型文件大小（MB）。
+func (d *ModelDAO) UpdateWeightSizeByWeightName(ctx context.Context, weightName string, weightSizeMB float64) (int64, error) {
+	logger := daoLogger().With("dao", "ModelDAO", "method", "UpdateWeightSizeByWeightName")
+
+	name := strings.TrimSpace(filepath.Base(weightName))
+	if name == "" || name == "." || name == string(filepath.Separator) {
+		logger.Warn("update model weight size skipped: invalid weight_name", "weight_name", weightName)
+		return 0, ErrNilEntity
+	}
+	if weightSizeMB < 0 {
+		logger.Warn("update model weight size skipped: invalid weight_size_mb", "weight_name", name, "weight_size_mb", weightSizeMB)
+		return 0, ErrNilEntity
+	}
+
+	dbConn, err := withContext(d.DB, ctx)
+	if err != nil {
+		logger.Error("update model weight size failed: with context", "weight_name", name, "error", err)
+		return 0, fmt.Errorf("update model weight size failed: %w", err)
+	}
+
+	result := dbConn.Model(&entity2.Model{}).Where("weight_name = ?", name).Update("weight_size_mb", weightSizeMB)
+	if result.Error != nil {
+		logger.Error("update model weight size failed: db update", "weight_name", name, "weight_size_mb", weightSizeMB, "error", result.Error)
+		return 0, fmt.Errorf("update model weight size failed: %w", result.Error)
+	}
+
+	logger.Info("update model weight size success", "weight_name", name, "weight_size_mb", weightSizeMB, "rows_affected", result.RowsAffected)
+	return result.RowsAffected, nil
+}
+
 // DeleteByID 根据主键删除模型记录。
 func (d *ModelDAO) DeleteByID(ctx context.Context, id uint) error {
 	logger := daoLogger().With("dao", "ModelDAO", "method", "DeleteByID")
@@ -237,6 +267,37 @@ func (d *ModelDAO) DeleteByID(ctx context.Context, id uint) error {
 
 	logger.Info("delete model success", "id", id)
 	return nil
+}
+
+// DeleteByWeightName 根据权重文件名删除模型记录。
+func (d *ModelDAO) DeleteByWeightName(ctx context.Context, weightName string) (int64, error) {
+	logger := daoLogger().With("dao", "ModelDAO", "method", "DeleteByWeightName")
+
+	name := strings.TrimSpace(filepath.Base(weightName))
+	if name == "" || name == "." || name == string(filepath.Separator) {
+		logger.Warn("delete model by weight_name skipped: invalid weight_name", "weight_name", weightName)
+		return 0, ErrNilEntity
+	}
+	logger.Info("delete model by weight_name begin", "weight_name", name)
+
+	dbConn, err := withContext(d.DB, ctx)
+	if err != nil {
+		logger.Error("delete model by weight_name failed: with context", "weight_name", name, "error", err)
+		return 0, fmt.Errorf("delete model by weight_name failed: %w", err)
+	}
+
+	result := dbConn.Where("weight_name = ?", name).Delete(&entity2.Model{})
+	if result.Error != nil {
+		logger.Error("delete model by weight_name failed: db delete", "weight_name", name, "error", result.Error)
+		return 0, fmt.Errorf("delete model by weight_name failed: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		logger.Warn("delete model by weight_name not found", "weight_name", name)
+		return 0, gorm.ErrRecordNotFound
+	}
+
+	logger.Info("delete model by weight_name success", "weight_name", name, "rows_affected", result.RowsAffected)
+	return result.RowsAffected, nil
 }
 
 // FindByID 根据主键查询单条模型记录。

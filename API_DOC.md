@@ -122,16 +122,19 @@ curl -X PATCH "http://localhost:8080/v1/models/1" \
 - Content-Type: `multipart/form-data`
 - 表单字段:
   - `file` (必填): 待上传模型文件
-  - `artifact_name` (可选): 用户自定义文档名（用于生成标准文件名）
+  - `artifact_name` (可选): 用户自定义文件名（可不带扩展名；不再追加哈希）
   - `storage_target` (可选): 存储目标，支持 `backend|baidu_netdisk|other_local`，默认 `backend`
   - `storage_server` (可选): 记录层的存储标识（兼容字段，不参与路径计算），默认 `backend`
   - `upload_to_baidu` (可选): 是否上传到百度网盘，布尔值，默认 `false`。支持 `true/false/1/0/t/f`。
   - `subdir` (可选): 兼容字段，已废弃；固定目录模式下忽略。
 - 返回:
-  - `file_name`: 标准文件名，格式 `artifact_name_哈希uuid.后缀`
+  - `file_name`: 保存后的文件名（不追加哈希）
   - `storage_target`: 最终存储目标
   - `resolved_path`: 本次后端实际写入路径
   - `saved_path`: 兼容字段，同 `resolved_path`
+  - `weight_size_mb`: 上传文件大小（MB，保留 3 位小数）
+  - `mysql_updated`: 是否命中并更新了 models 表中的 `weight_size_mb`
+  - `mysql_affected`: 本次 MySQL 更新影响行数
   - `paths`: 三类固定路径（`backend_path` / `baidu_path` / `other_local_path`）
   - `storage_server`: 记录层存储标识（兼容）
   - `upload_to_baidu`: 本次请求是否要求上传百度网盘
@@ -192,6 +195,18 @@ curl -X PATCH "http://localhost:8080/v1/models/1/storage-server" \
 ```bash
 curl -L -o model.pt "http://localhost:8080/v1/models/123/download"
 ```
+
+### 3.7 按文件名删除模型
+- 接口: `DELETE /models/by-filename?file_name={weight_name}`
+- 参数:
+  - `file_name` (必填): 模型文件名（即 `weight_name`）
+- 行为:
+  - 按 `weight_name` 删除 models 表记录（可能删除多条）
+  - 尝试删除后端本地文件 `/Users/wenzhengfeng/code/go/lucky_project/weights/{file_name}`
+- 返回:
+  - `file_name`
+  - `deleted_records`
+  - `local_file_deleted`
 
 ---
 
@@ -261,13 +276,13 @@ curl -L -o model.pt "http://localhost:8080/v1/models/123/download"
 - Content-Type: `multipart/form-data`
 - 表单字段:
   - `file` (必填): 待上传数据集文件（例如 zip）
-  - `artifact_name` (可选): 用户自定义文档名（用于生成标准文件名）
+  - `artifact_name` (可选): 用户自定义文件名（可不带扩展名；不再追加哈希）
   - `storage_target` (可选): 存储目标，支持 `backend|baidu_netdisk|other_local`，默认 `backend`
   - `storage_server` (可选): 记录层的存储标识（兼容字段，不参与路径计算），默认 `backend`
   - `upload_to_baidu` (可选): 是否上传到百度网盘，布尔值，默认 `false`。支持 `true/false/1/0/t/f`。
   - `subdir` (可选): 兼容字段，已废弃；固定目录模式下忽略。
 - 返回:
-  - `file_name`: 标准文件名，格式 `artifact_name_哈希uuid.后缀`
+  - `file_name`: 保存后的文件名（不追加哈希）
   - `storage_target`: 最终存储目标
   - `resolved_path`: 本次后端实际写入路径
   - `saved_path`: 兼容字段，同 `resolved_path`

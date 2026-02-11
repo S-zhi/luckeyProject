@@ -1,11 +1,7 @@
 package service
 
 import (
-	"crypto/rand"
-	"crypto/sha1"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -156,24 +152,36 @@ func (s *ArtifactPathService) GenerateStoredFileName(artifactName, originalFilen
 		return "", ErrInvalidUploadFile
 	}
 
-	ext := filepath.Ext(original)
-	base := strings.TrimSpace(artifactName)
-	if base == "" {
-		base = strings.TrimSuffix(original, ext)
+	originalExt := filepath.Ext(original)
+	ext := originalExt
+	baseCandidate := strings.TrimSuffix(original, originalExt)
+
+	rawArtifactName := strings.TrimSpace(artifactName)
+	if rawArtifactName != "" {
+		candidateName := strings.TrimSpace(filepath.Base(rawArtifactName))
+		if candidateName != "" && candidateName != "." && candidateName != string(filepath.Separator) {
+			candidateExt := filepath.Ext(candidateName)
+			switch {
+			case candidateExt == "":
+				baseCandidate = candidateName
+				ext = originalExt
+			case strings.EqualFold(candidateExt, originalExt):
+				baseCandidate = strings.TrimSuffix(candidateName, candidateExt)
+				ext = candidateExt
+			default:
+				// 支持 artifact_name 包含版本号小数点（如 yolo26n_v6.0），此时沿用原始扩展名。
+				baseCandidate = candidateName
+				ext = originalExt
+			}
+		}
 	}
-	base = sanitizeFileName(base)
+
+	base := sanitizeFileName(baseCandidate)
 	if strings.TrimSpace(base) == "" {
 		base = "file"
 	}
 
-	randomUUID, err := generateUUIDV4Text()
-	if err != nil {
-		return "", fmt.Errorf("generate uuid failed: %w", err)
-	}
-	hash := sha1.Sum([]byte(randomUUID))
-	suffix := hex.EncodeToString(hash[:])[:12]
-
-	return fmt.Sprintf("%s_%s%s", base, suffix, ext), nil
+	return base + ext, nil
 }
 
 func normalizeArtifactFileName(fileName string) (string, error) {
@@ -182,26 +190,6 @@ func normalizeArtifactFileName(fileName string) (string, error) {
 		return "", ErrArtifactFileNameEmpty
 	}
 	return name, nil
-}
-
-func generateUUIDV4Text() (string, error) {
-	buf := make([]byte, 16)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-
-	// Set version (4) and variant (10x).
-	buf[6] = (buf[6] & 0x0f) | 0x40
-	buf[8] = (buf[8] & 0x3f) | 0x80
-
-	return fmt.Sprintf(
-		"%08x-%04x-%04x-%04x-%012x",
-		buf[0:4],
-		buf[4:6],
-		buf[6:8],
-		buf[8:10],
-		buf[10:16],
-	), nil
 }
 
 func deriveFileName(fileName, legacyPath string) string {
