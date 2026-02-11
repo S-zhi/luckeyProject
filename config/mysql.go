@@ -1,9 +1,8 @@
-package db
+package config
 
 import (
 	"errors"
 	"fmt"
-	"lucky_project/config"
 	entity2 "lucky_project/entity"
 	"net/url"
 	"strings"
@@ -17,11 +16,11 @@ import (
 var DB *gorm.DB
 
 func InitDB() error {
-	if config.AppConfig == nil {
+	if AppConfig == nil {
 		return errors.New("app config is not initialized")
 	}
 
-	cfg := config.AppConfig.DB
+	cfg := AppConfig.DB
 	if !strings.EqualFold(cfg.Driver, "mysql") {
 		return fmt.Errorf("unsupported db driver: %s", cfg.Driver)
 	}

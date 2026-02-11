@@ -3,15 +3,20 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Server ServerConfig `yaml:"server"`
-	DB     DBConfig     `yaml:"db"`
+	Server   ServerConfig   `yaml:"server"`
+	DB       DBConfig       `yaml:"db"`
+	BaiduPan BaiduPanConfig `yaml:"baidu_pan"`
+	Log      LogConfig      `yaml:"log"`
 }
-
+type LogConfig struct {
+	Path string `yaml:"path"`
+}
 type ServerConfig struct {
 	Port int `yaml:"port"`
 }
@@ -23,6 +28,12 @@ type DBConfig struct {
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
 	DBName   string `yaml:"dbname"`
+}
+
+type BaiduPanConfig struct {
+	AccessToken string `yaml:"access_token"`
+	IsSVIP      bool   `yaml:"is_svip"`
+	LogPath     string `yaml:"log_path"`
 }
 
 var AppConfig *Config
@@ -38,6 +49,13 @@ func InitConfig() error {
 	if err != nil {
 		return fmt.Errorf("unmarshal config failed: %v", err)
 	}
+
+	if strings.TrimSpace(AppConfig.BaiduPan.LogPath) == "" {
+		AppConfig.BaiduPan.LogPath = "logs/baiduPanSDK.log"
+	}
+
+	// 配置加载完成后，按配置路径初始化应用日志。
+	InitLogger()
 
 	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"lucky_project/config"
-	"lucky_project/infrastructure/db"
 	"lucky_project/router"
 
 	"github.com/gin-gonic/gin"
@@ -22,7 +21,7 @@ func main() {
 	}
 
 	// 2. Initialize database
-	if err := db.InitDB(); err != nil {
+	if err := config.InitDB(); err != nil {
 		log.Fatalf("Init database failed: %v", err)
 	}
 
