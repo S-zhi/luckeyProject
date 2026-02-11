@@ -176,6 +176,23 @@ curl -X PATCH "http://localhost:8080/v1/models/1/storage-server" \
   }'
 ```
 
+### 3.6 下载模型文件
+- 接口: `GET /models/{id}/download`
+- Content-Type: 浏览器附件流（`application/octet-stream`）
+- 说明:
+  - 服务端会先读取模型记录的 `storage_server` 列表与 `weight_name`。
+  - 若后端本地已存在该文件（`/Users/wenzhengfeng/code/go/lucky_project/weights/{weight_name}`），直接返回文件附件流。
+  - 若本地不存在且 `storage_server` 包含 `baidu_netdisk`，则先从百度网盘路径 `/project/luckyProject/weights/{weight_name}` 下载到后端本地，再返回附件流。
+  - 当从百度下载成功后，会自动将 `backend` 追加到该模型的 `storage_server`。
+- 常见错误:
+  - `404`: 模型不存在，或本地无文件且未配置 `baidu_netdisk`
+  - `400/500`: 百度下载参数或服务异常
+
+示例：
+```bash
+curl -L -o model.pt "http://localhost:8080/v1/models/123/download"
+```
+
 ---
 
 ## 4. 数据集接口 (Datasets)

@@ -2,22 +2,29 @@ package v1
 
 import (
 	"errors"
+	"lucky_project/dao"
 	entity2 "lucky_project/entity"
 	"lucky_project/service"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type ModelController struct {
-	modelService  *service.ModelService
-	uploadService *service.UploadService
+	modelService    *service.ModelService
+	uploadService   *service.UploadService
+	downloadService *service.BaiduDownloadService
 }
 
 func NewModelController() *ModelController {
 	return &ModelController{
-		modelService:  service.NewModelService(),
-		uploadService: service.NewUploadService(),
+		modelService:    service.NewModelService(),
+		uploadService:   service.NewUploadService(),
+		downloadService: service.NewBaiduDownloadService(),
 	}
 }
 
@@ -142,6 +149,100 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 	})
 }
 
+// DownloadModelFile handles GET /v1/models/:id/download.
+func (c *ModelController) DownloadModelFile(ctx *gin.Context) {
+	id, err := parseUintPathParam(ctx, "id")
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	model, err := c.modelService.GetByID(ctx.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "record not found"})
+			return
+		}
+		writeHTTPError(ctx, err)
+		return
+	}
+
+	fileName := strings.TrimSpace(model.WeightName)
+	if fileName == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "model weight_name is empty"})
+		return
+	}
+	fileName = filepath.Base(fileName)
+
+	localPath, err := c.modelService.ResolveFilePathByID(ctx.Request.Context(), id, service.StorageTargetBackend)
+	if err != nil {
+		writeHTTPError(ctx, err)
+		return
+	}
+
+	servers, err := c.modelService.GetStorageServersByID(ctx.Request.Context(), id)
+	if err != nil {
+		writeHTTPError(ctx, err)
+		return
+	}
+
+	if fileExists(localPath) {
+		ctx.FileAttachment(localPath, fileName)
+		return
+	}
+
+	if !containsBaiduStorage(servers) {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "model file not found in backend and baidu_netdisk is not configured"})
+		return
+	}
+
+	if c.downloadService == nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "download service is nil"})
+		return
+	}
+
+	remotePath, err := c.modelService.ResolveFilePathByID(ctx.Request.Context(), id, service.StorageTargetBaiduNetdisk)
+	if err != nil {
+		writeHTTPError(ctx, err)
+		return
+	}
+
+	result, err := c.downloadService.DownloadToLocal(remotePath, service.ArtifactCategoryWeights, fileName)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidDownloadCategory),
+			errors.Is(err, service.ErrInvalidBaiduDownloadPath),
+			errors.Is(err, service.ErrInvalidBaiduDownloadFile),
+			errors.Is(err, service.ErrInvalidLocalDownloadFile),
+			errors.Is(err, service.ErrBaiduDownloadTargetRequired),
+			errors.Is(err, service.ErrBaiduPanAccessTokenRequired),
+			errors.Is(err, service.ErrInvalidStorageTarget):
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	localPath = result.LocalPath
+	if !fileExists(localPath) {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "downloaded file not found in backend storage"})
+		return
+	}
+
+	if _, err := c.modelService.UpdateStorageServersByID(
+		ctx.Request.Context(),
+		id,
+		dao.StorageActionAdd,
+		[]string{service.StorageTargetBackend},
+	); err != nil {
+		writeHTTPError(ctx, err)
+		return
+	}
+
+	ctx.FileAttachment(localPath, fileName)
+}
+
 // UpdateModelMetadata handles PATCH /v1/models/:id
 func (c *ModelController) UpdateModelMetadata(ctx *gin.Context) {
 	id, err := parseUintPathParam(ctx, "id")
@@ -169,4 +270,22 @@ func (c *ModelController) UpdateModelMetadata(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, model)
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
+func containsBaiduStorage(servers []string) bool {
+	for _, server := range servers {
+		switch strings.ToLower(strings.TrimSpace(server)) {
+		case service.StorageTargetBaiduNetdisk, "baidu", "baidu-pan", "baidu_pan", "baidupan", "pan.baidu", "百度网盘":
+			return true
+		}
+	}
+	return false
 }

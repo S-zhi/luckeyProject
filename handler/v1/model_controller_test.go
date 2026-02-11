@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	entity2 "lucky_project/entity"
+	"lucky_project/service"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -147,6 +149,46 @@ func TestModelAPI(t *testing.T) {
 		w := performRequest(testRouter, "PATCH", "/v1/models/1", bytes.NewBuffer(body))
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 		assert.Contains(t, w.Body.String(), "id is immutable")
+	})
+
+	t.Run("Download Model File From Backend", func(t *testing.T) {
+		algorithmID := "download_test_algo"
+		weightName := fmt.Sprintf("download_model_%d.pt", time.Now().UnixNano())
+		model := entity2.Model{
+			Name:          fmt.Sprintf("DownloadModel_%d", time.Now().UnixNano()),
+			Version:       1.00,
+			BaseModelID:   0,
+			AlgorithmID:   &algorithmID,
+			WeightName:    weightName,
+			StorageServer: "backend",
+			WeightSizeMB:  77.7,
+			TaskType:      "detect",
+		}
+		createBody, _ := json.Marshal(model)
+		createResp := performRequest(testRouter, "POST", "/v1/models", bytes.NewBuffer(createBody))
+		assert.Equal(t, http.StatusCreated, createResp.Code)
+
+		var created entity2.Model
+		err := json.Unmarshal(createResp.Body.Bytes(), &created)
+		assert.NoError(t, err)
+		assert.NotZero(t, created.ID)
+
+		localPath := filepath.Join(service.DefaultBackendWeightsRoot, weightName)
+		err = os.MkdirAll(filepath.Dir(localPath), 0o755)
+		assert.NoError(t, err)
+		content := []byte("mock binary model content")
+		err = os.WriteFile(localPath, content, 0o644)
+		assert.NoError(t, err)
+
+		t.Cleanup(func() {
+			_ = os.Remove(localPath)
+		})
+
+		downloadURL := fmt.Sprintf("/v1/models/%d/download", created.ID)
+		w := performRequest(testRouter, "GET", downloadURL, nil)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, string(content), w.Body.String())
+		assert.True(t, strings.Contains(w.Header().Get("Content-Disposition"), weightName))
 	})
 
 	// 2. 测试分页查询

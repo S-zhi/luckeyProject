@@ -54,6 +54,10 @@ func (s *ModelService) FindByName(ctx context.Context, name string) (*entity2.Mo
 	return s.modelDAO.FindByName(ctx, name)
 }
 
+func (s *ModelService) GetByID(ctx context.Context, id uint) (*entity2.Model, error) {
+	return s.modelDAO.FindByID(ctx, id)
+}
+
 func (s *ModelService) GetWeightNameByID(ctx context.Context, id uint) (string, error) {
 	return s.modelDAO.FindWeightNameByID(ctx, id)
 }
