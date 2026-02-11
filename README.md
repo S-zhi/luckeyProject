@@ -59,6 +59,7 @@ Base URL: `http://localhost:8080/v1`
 ### 模型
 - `POST /models`
 - `GET /models`
+- `GET /models/:id/download`（浏览器下载模型文件）
 - `PATCH /models/:id`（更新模型元信息）
 - `GET /models/:id/storage-server`
 - `PATCH /models/:id/storage-server`
@@ -113,6 +114,15 @@ Base URL: `http://localhost:8080/v1`
 
 限制：
 - `id`、`create_time` 不可修改。
+
+## 下载模型文件
+接口：`GET /v1/models/:id/download`
+
+行为：
+- 后端先读取该模型的 `storage_server` 列表与 `weight_name`。
+- 若后端本地目录已存在文件：直接以附件流返回给浏览器下载。
+- 若本地不存在且 `storage_server` 包含 `baidu_netdisk`：先从百度网盘固定路径下载到后端本地目录，再返回附件流。
+- 下载成功后会自动把 `backend` 追加到 `storage_server`（数组语义）。
 
 ## 百度下载（记录驱动模式）
 `POST /baidu/download` 支持两种方式：

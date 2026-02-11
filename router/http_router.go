@@ -49,6 +49,7 @@ func SetupRouter() *gin.Engine {
 		{
 			models.POST("", modelController.CreateModel)
 			models.GET("", modelController.GetAllModels)
+			models.GET("/:id/download", modelController.DownloadModelFile)
 			models.PATCH("/:id", modelController.UpdateModelMetadata)
 			models.GET("/:id/storage-server", modelController.GetModelStorageServers)
 			models.PATCH("/:id/storage-server", modelController.UpdateModelStorageServers)
