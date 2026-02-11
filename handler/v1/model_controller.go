@@ -134,6 +134,12 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 		return
 	}
 
+	affectedRows, weightSizeMB, err := c.modelService.SyncWeightSizeByFileName(ctx.Request.Context(), result.FileName, result.Size)
+	if err != nil {
+		writeHTTPError(ctx, err)
+		return
+	}
+
 	ctx.JSON(http.StatusCreated, gin.H{
 		"message":         "upload success",
 		"file_name":       result.FileName,
@@ -146,6 +152,31 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 		"upload_to_baidu": result.UploadToBaidu,
 		"baidu_uploaded":  result.BaiduUploaded,
 		"baidu_path":      result.BaiduPath,
+		"weight_size_mb":  weightSizeMB,
+		"mysql_updated":   affectedRows > 0,
+		"mysql_affected":  affectedRows,
+	})
+}
+
+// DeleteModelByFileName handles DELETE /v1/models/by-filename?file_name=xxx
+func (c *ModelController) DeleteModelByFileName(ctx *gin.Context) {
+	fileName := strings.TrimSpace(ctx.Query("file_name"))
+	if fileName == "" {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "file_name is required"})
+		return
+	}
+
+	result, err := c.modelService.DeleteByFileName(ctx.Request.Context(), fileName)
+	if err != nil {
+		writeHTTPError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"message":            "delete success",
+		"file_name":          result.FileName,
+		"deleted_records":    result.DeletedRecords,
+		"local_file_deleted": result.LocalFileDeleted,
 	})
 }
 

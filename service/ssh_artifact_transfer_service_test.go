@@ -286,3 +286,71 @@ func TestSSHArtifactTransferServiceUploadArtifactByNameRemoteAlreadyExists(t *te
 	_, err = svc.UploadArtifactByName("exists.pt", "any-server")
 	assert.True(t, errors.Is(err, ErrRemoteArtifactAlreadyExists))
 }
+
+func TestSSHArtifactTransferServiceUploadFileByPathWithPortOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+	localFile := filepath.Join(tmpDir, "demo.bin")
+	err := os.WriteFile(localFile, []byte("abc"), 0o644)
+	assert.NoError(t, err)
+
+	client := &fakeRemoteFileClient{
+		remoteFiles: map[string][]byte{},
+	}
+	factory := &fakeRemoteFileClientFactory{client: client}
+
+	svc := &SSHArtifactTransferService{
+		PathService: NewArtifactPathService(),
+		serverConfigs: map[string]SSHServerConfig{
+			"dev-server": {
+				Name:           "dev-server",
+				IP:             "10.0.0.10",
+				Port:           22,
+				User:           "root",
+				PrivateKeyPath: "/tmp/id_rsa",
+				Timeout:        10 * time.Second,
+			},
+		},
+		defaultServer: SSHServerConfig{
+			IP:             "192.168.1.100",
+			Port:           22,
+			User:           "root",
+			PrivateKeyPath: "/tmp/id_rsa",
+			Timeout:        10 * time.Second,
+		},
+		clientFactory: factory,
+	}
+
+	result, err := svc.UploadFileByPathWithPort(localFile, "/project/luckyProject/weights/demo.bin", "dev-server", 10022)
+	assert.NoError(t, err)
+	assert.Equal(t, "upload", result.Direction)
+	assert.Equal(t, int64(3), result.Bytes)
+	assert.Len(t, factory.serverCalls, 1)
+	assert.Equal(t, 10022, factory.serverCalls[0].Port)
+}
+
+func TestSSHArtifactTransferServiceUploadFileByPathWithInvalidPort(t *testing.T) {
+	tmpDir := t.TempDir()
+	localFile := filepath.Join(tmpDir, "demo.bin")
+	err := os.WriteFile(localFile, []byte("abc"), 0o644)
+	assert.NoError(t, err)
+
+	client := &fakeRemoteFileClient{
+		remoteFiles: map[string][]byte{},
+	}
+	factory := &fakeRemoteFileClientFactory{client: client}
+
+	svc := &SSHArtifactTransferService{
+		PathService: NewArtifactPathService(),
+		defaultServer: SSHServerConfig{
+			IP:             "192.168.1.100",
+			Port:           22,
+			User:           "root",
+			PrivateKeyPath: "/tmp/id_rsa",
+			Timeout:        10 * time.Second,
+		},
+		clientFactory: factory,
+	}
+
+	_, err = svc.UploadFileByPathWithPort(localFile, "/project/luckyProject/weights/demo.bin", "dev-server", 70000)
+	assert.True(t, errors.Is(err, ErrSSHServerPortInvalid))
+}

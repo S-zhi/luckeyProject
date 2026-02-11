@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
 	"time"
 
@@ -74,7 +73,7 @@ func TestDatasetAPI(t *testing.T) {
 		assert.Equal(t, false, resp["upload_to_baidu"])
 		assert.Equal(t, false, resp["baidu_uploaded"])
 		fileName, _ := resp["file_name"].(string)
-		assert.True(t, regexp.MustCompile(`^dataset_upload_[a-f0-9]{12}\.zip$`).MatchString(fileName), fileName)
+		assert.Equal(t, "dataset_upload.zip", fileName)
 		_, err = os.Stat(savedPath)
 		assert.NoError(t, err)
 

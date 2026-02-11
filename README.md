@@ -47,11 +47,11 @@
 
 ## 文件命名规则
 上传时生成标准文件名：
-- 格式：`用户命名_哈希uuid.后缀`
-- 哈希段：`sha1(uuidv4)[:12]`
-- 若未传 `artifact_name`，则使用原始文件名（去后缀）作为前缀
+- 不再追加哈希后缀
+- 若未传 `artifact_name`，则使用原始文件名
+- 若传入 `artifact_name` 且不含扩展名，则沿用原始文件扩展名
 
-示例：`yolov7_HRW_4.2k_1a2b3c4d5e6f.pt`
+示例：`yolov7_HRW_4.2k.pt`
 
 ## 主要接口
 Base URL: `http://localhost:8080/v1`
@@ -64,6 +64,7 @@ Base URL: `http://localhost:8080/v1`
 - `GET /models/:id/storage-server`
 - `PATCH /models/:id/storage-server`
 - `POST /models/upload`
+- `DELETE /models/by-filename?file_name=...`
 
 ### 数据集
 - `POST /datasets`
@@ -90,6 +91,8 @@ Base URL: `http://localhost:8080/v1`
 
 返回包含：
 - `file_name`
+- `weight_size_mb`（MB）
+- `mysql_updated` / `mysql_affected`（上传后按 `weight_name` 同步更新 models 表文件大小）
 - `storage_target`
 - `resolved_path`
 - `paths.backend_path / paths.baidu_path / paths.other_local_path`

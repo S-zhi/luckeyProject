@@ -17,32 +17,54 @@ import (
 )
 
 const (
+	// DefaultStaticServerIP 默认静态服务器IP地址
 	DefaultStaticServerIP = "192.168.1.100"
-	DefaultSSHServerPort  = 22
-	DefaultSSHServerUser  = "root"
+	// DefaultSSHServerPort 默认SSH服务器端口
+	DefaultSSHServerPort = 22
+	// DefaultSSHServerUser 默认SSH服务器用户名
+	DefaultSSHServerUser = "root"
 )
 
 var (
-	ErrSSHClientFactoryNil               = errors.New("ssh client factory is nil")
-	ErrSSHServerNameRequired             = errors.New("server name is required")
-	ErrSSHServerIPRequired               = errors.New("server ip is required")
-	ErrSSHServerUserRequired             = errors.New("ssh server user is required")
-	ErrSSHPrivateKeyPathRequired         = errors.New("ssh private key path is required")
-	ErrSSHFilePathRequired               = errors.New("file path is required")
-	ErrLocalSourceFileNotFound           = errors.New("local source file not found")
-	ErrLocalSourcePathNotRegularFile     = errors.New("local source path is not a regular file")
-	ErrRemoteArtifactNotFound            = errors.New("remote artifact not found")
-	ErrRemoteArtifactAlreadyExists       = errors.New("remote artifact already exists")
-	ErrArtifactNotFoundInBackendRoots    = errors.New("artifact not found in backend roots")
+	// ErrSSHClientFactoryNil SSH客户端工厂为空错误
+	ErrSSHClientFactoryNil = errors.New("ssh client factory is nil")
+	// ErrSSHServerNameRequired 服务器名称必填错误
+	ErrSSHServerNameRequired = errors.New("server name is required")
+	// ErrSSHServerIPRequired 服务器IP必填错误
+	ErrSSHServerIPRequired = errors.New("server ip is required")
+	// ErrSSHServerPortInvalid SSH服务器端口非法错误
+	ErrSSHServerPortInvalid = errors.New("ssh server port is invalid")
+	// ErrSSHServerUserRequired SSH服务器用户必填错误
+	ErrSSHServerUserRequired = errors.New("ssh server user is required")
+	// ErrSSHPrivateKeyPathRequired SSH私钥路径必填错误
+	ErrSSHPrivateKeyPathRequired = errors.New("ssh private key path is required")
+	// ErrSSHFilePathRequired 文件路径必填错误
+	ErrSSHFilePathRequired = errors.New("file path is required")
+	// ErrLocalSourceFileNotFound 本地源文件未找到错误
+	ErrLocalSourceFileNotFound = errors.New("local source file not found")
+	// ErrLocalSourcePathNotRegularFile 本地源路径非常规文件错误
+	ErrLocalSourcePathNotRegularFile = errors.New("local source path is not a regular file")
+	// ErrRemoteArtifactNotFound 远程构件未找到错误
+	ErrRemoteArtifactNotFound = errors.New("remote artifact not found")
+	// ErrRemoteArtifactAlreadyExists 远程构件已存在错误
+	ErrRemoteArtifactAlreadyExists = errors.New("remote artifact already exists")
+	// ErrArtifactNotFoundInBackendRoots 后端根目录中未找到构件错误
+	ErrArtifactNotFoundInBackendRoots = errors.New("artifact not found in backend roots")
+	// ErrArtifactNotFoundInRemoteOtherRoot 远程other根目录中未找到构件错误
 	ErrArtifactNotFoundInRemoteOtherRoot = errors.New("artifact not found in remote other roots")
-	ErrArtifactConflictInBackendRoots    = errors.New("artifact exists in both backend roots")
-	ErrArtifactConflictInRemoteRoots     = errors.New("artifact exists in both remote roots")
+	// ErrArtifactConflictInBackendRoots 构件在后端根目录中冲突错误
+	ErrArtifactConflictInBackendRoots = errors.New("artifact exists in both backend roots")
+	// ErrArtifactConflictInRemoteRoots 构件在远程根目录中冲突错误
+	ErrArtifactConflictInRemoteRoots = errors.New("artifact exists in both remote roots")
 )
 
 var (
+	// defaultSSHTimeout 默认SSH连接超时时间
 	defaultSSHTimeout = 15 * time.Second
 )
 
+// SSHServerConfig SSH服务器配置信息
+// 包含连接SSH服务器所需的所有配置参数
 type SSHServerConfig struct {
 	Name           string
 	IP             string
@@ -52,6 +74,8 @@ type SSHServerConfig struct {
 	Timeout        time.Duration
 }
 
+// SSHTransferResult SSH文件传输结果
+// 记录文件传输的详细信息和统计
 type SSHTransferResult struct {
 	ServerName string        `json:"server_name"`
 	ServerIP   string        `json:"server_ip"`
@@ -64,6 +88,8 @@ type SSHTransferResult struct {
 	Cost       time.Duration `json:"cost"`
 }
 
+// RemoteArtifactSearchResult 远程构件文件搜索结果
+// 包含文件在远程服务器上weights和datasets目录中的存在状态
 type RemoteArtifactSearchResult struct {
 	ServerName        string `json:"server_name"`
 	ServerIP          string `json:"server_ip"`
@@ -76,6 +102,8 @@ type RemoteArtifactSearchResult struct {
 	MatchedRemotePath string `json:"matched_remote_path,omitempty"`
 }
 
+// remoteFileClient 远程文件客户端接口
+// 定义文件传输操作的标准接口
 type remoteFileClient interface {
 	UploadFile(localPath, remotePath string) (int64, error)
 	DownloadFile(remotePath, localPath string) (int64, error)
@@ -83,10 +111,14 @@ type remoteFileClient interface {
 	Close() error
 }
 
+// remoteFileClientFactory 远程文件客户端工厂接口
+// 用于创建remoteFileClient实例
 type remoteFileClientFactory interface {
 	New(server SSHServerConfig) (remoteFileClient, error)
 }
 
+// SSHArtifactTransferService SSH构件传输服务
+// 提供基于SSH的文件传输功能，支持构件文件的上传、下载和搜索
 type SSHArtifactTransferService struct {
 	PathService   *ArtifactPathService
 	serverConfigs map[string]SSHServerConfig
@@ -94,6 +126,9 @@ type SSHArtifactTransferService struct {
 	clientFactory remoteFileClientFactory
 }
 
+// NewSSHArtifactTransferService 创建新的SSH文件传输服务实例
+// 初始化默认服务器配置和静态服务器映射
+// 返回SSHArtifactTransferService指针
 func NewSSHArtifactTransferService() *SSHArtifactTransferService {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -154,6 +189,12 @@ func NewSSHArtifactTransferService() *SSHArtifactTransferService {
 	}
 }
 
+// SetServerConfig 设置指定名称的SSH服务器配置
+// 参数:
+//   - serverName: 服务器名称
+//   - cfg: SSH服务器配置信息
+//
+// 返回错误信息，成功时返回nil
 func (s *SSHArtifactTransferService) SetServerConfig(serverName string, cfg SSHServerConfig) error {
 	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "SetServerConfig")
 
@@ -185,13 +226,33 @@ func (s *SSHArtifactTransferService) SetServerConfig(serverName string, cfg SSHS
 	return nil
 }
 
+// UploadFileByPath 通过指定路径上传文件到远程服务器
+// 参数:
+//   - localPath: 本地文件路径
+//   - remotePath: 远程目标路径
+//   - serverName: 目标服务器名称
+//
+// 返回传输结果和错误信息
 func (s *SSHArtifactTransferService) UploadFileByPath(localPath, remotePath, serverName string) (SSHTransferResult, error) {
-	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "UploadFileByPath")
+	return s.UploadFileByPathWithPort(localPath, remotePath, serverName, 0)
+}
+
+// UploadFileByPathWithPort 通过指定路径上传文件到远程服务器（支持端口覆盖）
+// 参数:
+//   - localPath: 本地文件路径
+//   - remotePath: 远程目标路径
+//   - serverName: 目标服务器名称
+//   - port: SSH端口(>0时覆盖服务器默认端口)
+//
+// 返回传输结果和错误信息
+func (s *SSHArtifactTransferService) UploadFileByPathWithPort(localPath, remotePath, serverName string, port int) (SSHTransferResult, error) {
+	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "UploadFileByPathWithPort")
 	start := time.Now()
 
 	logger.Info(
 		"upload begin",
 		"server_name", strings.TrimSpace(serverName),
+		"port", port,
 		"local_path", strings.TrimSpace(localPath),
 		"remote_path", strings.TrimSpace(remotePath),
 	)
@@ -230,9 +291,9 @@ func (s *SSHArtifactTransferService) UploadFileByPath(localPath, remotePath, ser
 		return SSHTransferResult{}, ErrLocalSourcePathNotRegularFile
 	}
 
-	server, err := s.resolveServer(serverName)
+	server, err := s.resolveServerWithPort(serverName, port)
 	if err != nil {
-		logger.Error("upload failed: resolve server failed", "server_name", serverName, "error", err)
+		logger.Error("upload failed: resolve server failed", "server_name", serverName, "port", port, "error", err)
 		return SSHTransferResult{}, err
 	}
 
@@ -274,6 +335,7 @@ func (s *SSHArtifactTransferService) UploadFileByPath(localPath, remotePath, ser
 		"upload success",
 		"server_name", server.Name,
 		"server_ip", server.IP,
+		"port", server.Port,
 		"bytes", written,
 		"cost_ms", result.Cost.Milliseconds(),
 		"source_path", result.SourcePath,
@@ -282,13 +344,33 @@ func (s *SSHArtifactTransferService) UploadFileByPath(localPath, remotePath, ser
 	return result, nil
 }
 
+// DownloadFileByPath 通过指定路径从远程服务器下载文件
+// 参数:
+//   - remotePath: 远程文件路径
+//   - localPath: 本地目标路径
+//   - serverName: 源服务器名称
+//
+// 返回传输结果和错误信息
 func (s *SSHArtifactTransferService) DownloadFileByPath(remotePath, localPath, serverName string) (SSHTransferResult, error) {
-	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "DownloadFileByPath")
+	return s.DownloadFileByPathWithPort(remotePath, localPath, serverName, 0)
+}
+
+// DownloadFileByPathWithPort 通过指定路径从远程服务器下载文件（支持端口覆盖）
+// 参数:
+//   - remotePath: 远程文件路径
+//   - localPath: 本地目标路径
+//   - serverName: 源服务器名称
+//   - port: SSH端口(>0时覆盖服务器默认端口)
+//
+// 返回传输结果和错误信息
+func (s *SSHArtifactTransferService) DownloadFileByPathWithPort(remotePath, localPath, serverName string, port int) (SSHTransferResult, error) {
+	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "DownloadFileByPathWithPort")
 	start := time.Now()
 
 	logger.Info(
 		"download begin",
 		"server_name", strings.TrimSpace(serverName),
+		"port", port,
 		"remote_path", strings.TrimSpace(remotePath),
 		"local_path", strings.TrimSpace(localPath),
 	)
@@ -313,9 +395,9 @@ func (s *SSHArtifactTransferService) DownloadFileByPath(remotePath, localPath, s
 	}
 	normalizedLocal := filepath.Clean(strings.TrimSpace(localPath))
 
-	server, err := s.resolveServer(serverName)
+	server, err := s.resolveServerWithPort(serverName, port)
 	if err != nil {
-		logger.Error("download failed: resolve server failed", "server_name", serverName, "error", err)
+		logger.Error("download failed: resolve server failed", "server_name", serverName, "port", port, "error", err)
 		return SSHTransferResult{}, err
 	}
 
@@ -367,6 +449,7 @@ func (s *SSHArtifactTransferService) DownloadFileByPath(remotePath, localPath, s
 		"download success",
 		"server_name", server.Name,
 		"server_ip", server.IP,
+		"port", server.Port,
 		"bytes", written,
 		"cost_ms", result.Cost.Milliseconds(),
 		"source_path", result.SourcePath,
@@ -375,13 +458,32 @@ func (s *SSHArtifactTransferService) DownloadFileByPath(remotePath, localPath, s
 	return result, nil
 }
 
+// SearchRemoteFileInDefaultOtherRoots 在默认的other根目录中搜索远程文件
+// 在weights和datasets两个目录中查找指定文件
+// 参数:
+//   - fileName: 要搜索的文件名
+//   - serverName: 目标服务器名称
+//
+// 返回搜索结果，包含文件在各目录的存在状态
 func (s *SSHArtifactTransferService) SearchRemoteFileInDefaultOtherRoots(fileName, serverName string) (RemoteArtifactSearchResult, error) {
-	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "SearchRemoteFileInDefaultOtherRoots")
+	return s.SearchRemoteFileInDefaultOtherRootsWithPort(fileName, serverName, 0)
+}
+
+// SearchRemoteFileInDefaultOtherRootsWithPort 在默认的other根目录中搜索远程文件（支持端口覆盖）
+// 参数:
+//   - fileName: 要搜索的文件名
+//   - serverName: 目标服务器名称
+//   - port: SSH端口(>0时覆盖服务器默认端口)
+//
+// 返回搜索结果，包含文件在各目录的存在状态
+func (s *SSHArtifactTransferService) SearchRemoteFileInDefaultOtherRootsWithPort(fileName, serverName string, port int) (RemoteArtifactSearchResult, error) {
+	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "SearchRemoteFileInDefaultOtherRootsWithPort")
 	start := time.Now()
 
 	logger.Info(
 		"search remote file begin",
 		"server_name", strings.TrimSpace(serverName),
+		"port", port,
 		"file_name", strings.TrimSpace(fileName),
 		"weights_root", strings.TrimSpace(safeRoot(s, ArtifactCategoryWeights)),
 		"datasets_root", strings.TrimSpace(safeRoot(s, ArtifactCategoryDatasets)),
@@ -413,9 +515,9 @@ func (s *SSHArtifactTransferService) SearchRemoteFileInDefaultOtherRoots(fileNam
 		return RemoteArtifactSearchResult{}, err
 	}
 
-	server, err := s.resolveServer(serverName)
+	server, err := s.resolveServerWithPort(serverName, port)
 	if err != nil {
-		logger.Error("search remote file failed: resolve server failed", "server_name", serverName, "error", err)
+		logger.Error("search remote file failed: resolve server failed", "server_name", serverName, "port", port, "error", err)
 		return RemoteArtifactSearchResult{}, err
 	}
 
@@ -463,6 +565,7 @@ func (s *SSHArtifactTransferService) SearchRemoteFileInDefaultOtherRoots(fileNam
 		"search remote file success",
 		"server_name", server.Name,
 		"server_ip", server.IP,
+		"port", server.Port,
 		"file_name", name,
 		"exists_in_weights", weightsExists,
 		"exists_in_datasets", datasetsExists,
@@ -473,11 +576,34 @@ func (s *SSHArtifactTransferService) SearchRemoteFileInDefaultOtherRoots(fileNam
 	return result, nil
 }
 
+// UploadArtifactByName 根据文件名上传构件文件
+// 自动解析文件类别并在后端找到对应文件，然后上传到远程other目录
+// 参数:
+//   - fileName: 构件文件名
+//   - serverName: 目标服务器名称
+//
+// 返回传输结果和错误信息
 func (s *SSHArtifactTransferService) UploadArtifactByName(fileName, serverName string) (SSHTransferResult, error) {
-	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "UploadArtifactByName")
+	return s.UploadArtifactByNameWithPort(fileName, serverName, 0)
+}
+
+// UploadArtifactByNameWithPort 根据文件名上传构件文件（支持端口覆盖）
+// 参数:
+//   - fileName: 构件文件名
+//   - serverName: 目标服务器名称
+//   - port: SSH端口(>0时覆盖服务器默认端口)
+//
+// 返回传输结果和错误信息
+func (s *SSHArtifactTransferService) UploadArtifactByNameWithPort(fileName, serverName string, port int) (SSHTransferResult, error) {
+	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "UploadArtifactByNameWithPort")
 	start := time.Now()
 
-	logger.Info("upload artifact by name begin", "server_name", strings.TrimSpace(serverName), "file_name", strings.TrimSpace(fileName))
+	logger.Info(
+		"upload artifact by name begin",
+		"server_name", strings.TrimSpace(serverName),
+		"port", port,
+		"file_name", strings.TrimSpace(fileName),
+	)
 
 	if s.PathService == nil {
 		logger.Warn("upload artifact by name failed: artifact path service is nil")
@@ -496,9 +622,9 @@ func (s *SSHArtifactTransferService) UploadArtifactByName(fileName, serverName s
 		return SSHTransferResult{}, err
 	}
 
-	searchResult, err := s.SearchRemoteFileInDefaultOtherRoots(name, serverName)
+	searchResult, err := s.SearchRemoteFileInDefaultOtherRootsWithPort(name, serverName, port)
 	if err != nil {
-		logger.Error("upload artifact by name failed: search remote file failed", "file_name", name, "server_name", serverName, "error", err)
+		logger.Error("upload artifact by name failed: search remote file failed", "file_name", name, "server_name", serverName, "port", port, "error", err)
 		return SSHTransferResult{}, err
 	}
 
@@ -521,7 +647,7 @@ func (s *SSHArtifactTransferService) UploadArtifactByName(fileName, serverName s
 		return SSHTransferResult{}, err
 	}
 
-	result, err := s.UploadFileByPath(localPath, remotePath, serverName)
+	result, err := s.UploadFileByPathWithPort(localPath, remotePath, serverName, port)
 	if err != nil {
 		logger.Error("upload artifact by name failed: upload by path failed", "error", err)
 		return SSHTransferResult{}, err
@@ -535,6 +661,7 @@ func (s *SSHArtifactTransferService) UploadArtifactByName(fileName, serverName s
 		"upload artifact by name success",
 		"server_name", result.ServerName,
 		"server_ip", result.ServerIP,
+		"port", port,
 		"file_name", result.FileName,
 		"category", result.Category,
 		"bytes", result.Bytes,
@@ -545,11 +672,34 @@ func (s *SSHArtifactTransferService) UploadArtifactByName(fileName, serverName s
 	return result, nil
 }
 
+// DownloadArtifactByName 根据文件名下载构件文件
+// 在远程other目录中搜索文件并下载到本地后端目录
+// 参数:
+//   - fileName: 构件文件名
+//   - serverName: 源服务器名称
+//
+// 返回传输结果和错误信息
 func (s *SSHArtifactTransferService) DownloadArtifactByName(fileName, serverName string) (SSHTransferResult, error) {
-	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "DownloadArtifactByName")
+	return s.DownloadArtifactByNameWithPort(fileName, serverName, 0)
+}
+
+// DownloadArtifactByNameWithPort 根据文件名下载构件文件（支持端口覆盖）
+// 参数:
+//   - fileName: 构件文件名
+//   - serverName: 源服务器名称
+//   - port: SSH端口(>0时覆盖服务器默认端口)
+//
+// 返回传输结果和错误信息
+func (s *SSHArtifactTransferService) DownloadArtifactByNameWithPort(fileName, serverName string, port int) (SSHTransferResult, error) {
+	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "DownloadArtifactByNameWithPort")
 	start := time.Now()
 
-	logger.Info("download artifact by name begin", "server_name", strings.TrimSpace(serverName), "file_name", strings.TrimSpace(fileName))
+	logger.Info(
+		"download artifact by name begin",
+		"server_name", strings.TrimSpace(serverName),
+		"port", port,
+		"file_name", strings.TrimSpace(fileName),
+	)
 
 	if s.PathService == nil {
 		logger.Warn("download artifact by name failed: artifact path service is nil")
@@ -562,9 +712,9 @@ func (s *SSHArtifactTransferService) DownloadArtifactByName(fileName, serverName
 		return SSHTransferResult{}, err
 	}
 
-	searchResult, err := s.SearchRemoteFileInDefaultOtherRoots(name, serverName)
+	searchResult, err := s.SearchRemoteFileInDefaultOtherRootsWithPort(name, serverName, port)
 	if err != nil {
-		logger.Error("download artifact by name failed: search remote file failed", "file_name", name, "server_name", serverName, "error", err)
+		logger.Error("download artifact by name failed: search remote file failed", "file_name", name, "server_name", serverName, "port", port, "error", err)
 		return SSHTransferResult{}, err
 	}
 	if !searchResult.AnyExists {
@@ -599,7 +749,7 @@ func (s *SSHArtifactTransferService) DownloadArtifactByName(fileName, serverName
 		return SSHTransferResult{}, err
 	}
 
-	result, err := s.DownloadFileByPath(remotePath, localPath, serverName)
+	result, err := s.DownloadFileByPathWithPort(remotePath, localPath, serverName, port)
 	if err != nil {
 		logger.Error("download artifact by name failed: download by path failed", "error", err)
 		return SSHTransferResult{}, err
@@ -613,6 +763,7 @@ func (s *SSHArtifactTransferService) DownloadArtifactByName(fileName, serverName
 		"download artifact by name success",
 		"server_name", result.ServerName,
 		"server_ip", result.ServerIP,
+		"port", port,
 		"file_name", result.FileName,
 		"category", result.Category,
 		"bytes", result.Bytes,
@@ -623,8 +774,25 @@ func (s *SSHArtifactTransferService) DownloadArtifactByName(fileName, serverName
 	return result, nil
 }
 
+// resolveServer 解析服务器配置
+// 根据服务器名称查找对应的SSH配置信息
+// 如果找不到则回退到默认配置
+// 参数:
+//   - serverName: 服务器名称
+//
+// 返回服务器配置和错误信息
 func (s *SSHArtifactTransferService) resolveServer(serverName string) (SSHServerConfig, error) {
-	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "resolveServer")
+	return s.resolveServerWithPort(serverName, 0)
+}
+
+// resolveServerWithPort 解析服务器配置并支持端口覆盖
+// 参数:
+//   - serverName: 服务器名称
+//   - port: SSH端口(>0时覆盖服务器默认端口)
+//
+// 返回服务器配置和错误信息
+func (s *SSHArtifactTransferService) resolveServerWithPort(serverName string, port int) (SSHServerConfig, error) {
+	logger := serviceLogger().With("service", "SSHArtifactTransferService", "method", "resolveServerWithPort")
 
 	name := strings.TrimSpace(serverName)
 	if name == "" {
@@ -640,6 +808,13 @@ func (s *SSHArtifactTransferService) resolveServer(serverName string) (SSHServer
 				return SSHServerConfig{}, err
 			}
 			normalized.Name = name
+			if port > 0 {
+				normalized.Port = port
+			}
+			if normalized.Port <= 0 || normalized.Port > 65535 {
+				logger.Error("resolve server failed: invalid port", "server_name", name, "port", normalized.Port)
+				return SSHServerConfig{}, ErrSSHServerPortInvalid
+			}
 			logger.Info(
 				"resolve server from static mapping",
 				"server_name", name,
@@ -658,6 +833,13 @@ func (s *SSHArtifactTransferService) resolveServer(serverName string) (SSHServer
 		return SSHServerConfig{}, err
 	}
 	fallback.Name = name
+	if port > 0 {
+		fallback.Port = port
+	}
+	if fallback.Port <= 0 || fallback.Port > 65535 {
+		logger.Error("resolve server failed: invalid port", "server_name", name, "port", fallback.Port)
+		return SSHServerConfig{}, ErrSSHServerPortInvalid
+	}
 	logger.Warn(
 		"server not found in static mapping, use default static ip",
 		"server_name", name,
@@ -669,6 +851,12 @@ func (s *SSHArtifactTransferService) resolveServer(serverName string) (SSHServer
 	return fallback, nil
 }
 
+// normalizeServerConfig 标准化SSH服务器配置
+// 清理字符串字段，设置默认值，验证必需字段
+// 参数:
+//   - cfg: 原始服务器配置
+//
+// 返回标准化后的配置和错误信息
 func normalizeServerConfig(cfg SSHServerConfig) (SSHServerConfig, error) {
 	normalized := cfg
 	normalized.IP = strings.TrimSpace(normalized.IP)
@@ -676,6 +864,9 @@ func normalizeServerConfig(cfg SSHServerConfig) (SSHServerConfig, error) {
 	normalized.PrivateKeyPath = strings.TrimSpace(normalized.PrivateKeyPath)
 	if normalized.Port == 0 {
 		normalized.Port = DefaultSSHServerPort
+	}
+	if normalized.Port <= 0 || normalized.Port > 65535 {
+		return SSHServerConfig{}, ErrSSHServerPortInvalid
 	}
 	if normalized.Timeout <= 0 {
 		normalized.Timeout = defaultSSHTimeout
@@ -692,6 +883,12 @@ func normalizeServerConfig(cfg SSHServerConfig) (SSHServerConfig, error) {
 	return normalized, nil
 }
 
+// resolveLocalBackendFile 解析本地后端文件路径
+// 在weights和datasets目录中查找指定文件，确定其完整路径和类别
+// 参数:
+//   - fileName: 文件名
+//
+// 返回文件完整路径、文件类别和错误信息
 func (s *SSHArtifactTransferService) resolveLocalBackendFile(fileName string) (string, string, error) {
 	weightsPath, err := s.PathService.BuildPath(ArtifactCategoryWeights, StorageTargetBackend, fileName)
 	if err != nil {
@@ -723,6 +920,12 @@ func (s *SSHArtifactTransferService) resolveLocalBackendFile(fileName string) (s
 	}
 }
 
+// localRegularFileExists 检查本地常规文件是否存在
+// 验证指定路径是否为存在的常规文件
+// 参数:
+//   - filePath: 文件路径
+//
+// 返回是否存在以及错误信息
 func localRegularFileExists(filePath string) (bool, error) {
 	info, err := os.Stat(filepath.Clean(filePath))
 	if err != nil {
@@ -737,6 +940,13 @@ func localRegularFileExists(filePath string) (bool, error) {
 	return true, nil
 }
 
+// safeRoot 安全获取存储根目录路径
+// 防止空指针异常的安全包装函数
+// 参数:
+//   - s: SSHArtifactTransferService实例
+//   - category: 存储类别
+//
+// 返回根目录路径，失败时返回空字符串
 func safeRoot(s *SSHArtifactTransferService, category string) string {
 	if s == nil || s.PathService == nil {
 		return ""
@@ -748,6 +958,12 @@ func safeRoot(s *SSHArtifactTransferService, category string) string {
 	return root
 }
 
+// normalizeRemoteFilePath 标准化远程文件路径
+// 清理路径字符串，转换反斜杠，确保绝对路径格式
+// 参数:
+//   - rawPath: 原始路径字符串
+//
+// 返回标准化后的路径和错误信息
 func normalizeRemoteFilePath(rawPath string) (string, error) {
 	value := strings.TrimSpace(strings.ReplaceAll(rawPath, "\\", "/"))
 	if value == "" {
@@ -763,18 +979,34 @@ func normalizeRemoteFilePath(rawPath string) (string, error) {
 	return value, nil
 }
 
+// sshSFTPClientFactory SFTP客户端工厂实现
+// 负责创建SSH SFTP客户端连接
 type sshSFTPClientFactory struct{}
 
+// New 创建新的远程文件客户端
+// 实现remoteFileClientFactory接口
+// 参数:
+//   - server: SSH服务器配置
+//
+// 返回远程文件客户端和错误信息
 func (f *sshSFTPClientFactory) New(server SSHServerConfig) (remoteFileClient, error) {
 	return newSSHSFTPClient(server)
 }
 
+// sshSFTPClient SSH SFTP客户端实现
+// 封装SSH连接和SFTP客户端功能
 type sshSFTPClient struct {
-	server     SSHServerConfig
-	sshClient  *ssh.Client
-	sftpClient *sftp.Client
+	server     SSHServerConfig // 服务器配置
+	sshClient  *ssh.Client     // SSH客户端连接
+	sftpClient *sftp.Client    // SFTP客户端
 }
 
+// newSSHSFTPClient 创建新的SSH SFTP客户端
+// 建立SSH连接并初始化SFTP客户端
+// 参数:
+//   - server: SSH服务器配置
+//
+// 返回SSH SFTP客户端和错误信息
 func newSSHSFTPClient(server SSHServerConfig) (*sshSFTPClient, error) {
 	normalized, err := normalizeServerConfig(server)
 	if err != nil {
@@ -819,6 +1051,13 @@ func newSSHSFTPClient(server SSHServerConfig) (*sshSFTPClient, error) {
 	}, nil
 }
 
+// UploadFile 上传本地文件到远程服务器
+// 实现remoteFileClient接口的文件上传功能
+// 参数:
+//   - localPath: 本地源文件路径
+//   - remotePath: 远程目标文件路径
+//
+// 返回传输的字节数和错误信息
 func (c *sshSFTPClient) UploadFile(localPath, remotePath string) (int64, error) {
 	normalizedRemote, err := normalizeRemoteFilePath(remotePath)
 	if err != nil {
@@ -858,6 +1097,13 @@ func (c *sshSFTPClient) UploadFile(localPath, remotePath string) (int64, error) 
 	return written, nil
 }
 
+// DownloadFile 从远程服务器下载文件到本地
+// 实现remoteFileClient接口的文件下载功能
+// 参数:
+//   - remotePath: 远程源文件路径
+//   - localPath: 本地目标文件路径
+//
+// 返回传输的字节数和错误信息
 func (c *sshSFTPClient) DownloadFile(remotePath, localPath string) (int64, error) {
 	normalizedRemote, err := normalizeRemoteFilePath(remotePath)
 	if err != nil {
@@ -895,6 +1141,12 @@ func (c *sshSFTPClient) DownloadFile(remotePath, localPath string) (int64, error
 	return written, nil
 }
 
+// FileExists 检查远程文件是否存在
+// 实现remoteFileClient接口的文件存在性检查功能
+// 参数:
+//   - remotePath: 远程文件路径
+//
+// 返回文件是否存在和错误信息
 func (c *sshSFTPClient) FileExists(remotePath string) (bool, error) {
 	normalizedRemote, err := normalizeRemoteFilePath(remotePath)
 	if err != nil {
@@ -911,6 +1163,9 @@ func (c *sshSFTPClient) FileExists(remotePath string) (bool, error) {
 	return true, nil
 }
 
+// Close 关闭SSH和SFTP客户端连接
+// 实现remoteFileClient接口的资源清理功能
+// 返回关闭过程中可能发生的第一个错误
 func (c *sshSFTPClient) Close() error {
 	var firstErr error
 	if c.sftpClient != nil {
@@ -926,6 +1181,12 @@ func (c *sshSFTPClient) Close() error {
 	return firstErr
 }
 
+// isNotExistError 判断错误是否表示文件不存在
+// 统一处理不同形式的"文件不存在"错误
+// 参数:
+//   - err: 要检查的错误
+//
+// 返回是否为文件不存在错误
 func isNotExistError(err error) bool {
 	if err == nil {
 		return false
