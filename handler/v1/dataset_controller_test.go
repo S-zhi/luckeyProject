@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -56,7 +57,7 @@ func TestDatasetAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/datasets/upload", "file", filePath, map[string]string{
-			"subdir":         "ut",
+			"artifact_name":  "dataset_upload",
 			"storage_server": "nas-02",
 		})
 		assert.Equal(t, http.StatusCreated, w.Code)
@@ -69,8 +70,11 @@ func TestDatasetAPI(t *testing.T) {
 		assert.True(t, ok)
 		assert.NotEmpty(t, savedPath)
 		assert.Equal(t, "nas-02", resp["storage_server"])
+		assert.Equal(t, "backend", resp["storage_target"])
 		assert.Equal(t, false, resp["upload_to_baidu"])
 		assert.Equal(t, false, resp["baidu_uploaded"])
+		fileName, _ := resp["file_name"].(string)
+		assert.True(t, regexp.MustCompile(`^dataset_upload_[a-f0-9]{12}\.zip$`).MatchString(fileName), fileName)
 		_, err = os.Stat(savedPath)
 		assert.NoError(t, err)
 
@@ -86,7 +90,7 @@ func TestDatasetAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/datasets/upload", "file", filePath, map[string]string{
-			"subdir": "ut/default",
+			"artifact_name": "dataset_default",
 		})
 		assert.Equal(t, http.StatusCreated, w.Code)
 
@@ -94,6 +98,7 @@ func TestDatasetAPI(t *testing.T) {
 		err = json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
 		assert.Equal(t, "backend", resp["storage_server"])
+		assert.Equal(t, "backend", resp["storage_target"])
 		assert.Equal(t, false, resp["upload_to_baidu"])
 		assert.Equal(t, false, resp["baidu_uploaded"])
 

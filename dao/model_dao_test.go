@@ -35,16 +35,18 @@ func TestMain(m *testing.M) {
 }
 
 func newTestModel() *entity.Model {
+	algorithmID := "yolo_ultralytics"
+	framework := "pytorch"
 	return &entity.Model{
 		Name:          fmt.Sprintf("unittest_model_%d", time.Now().UnixNano()),
-		StorageServer: "nas-01",
-		ModelPath:     "/test/path/model.weights",
-		ImplType:      "yolo_ultralytics",
-		DatasetID:     1,
-		SizeMB:        100.500,
-		Version:       "v1.0.0",
+		Version:       1.00,
+		BaseModelID:   0,
+		AlgorithmID:   &algorithmID,
 		TaskType:      "detect",
-		CreatedAt:     time.Now(),
+		Framework:     &framework,
+		WeightSizeMB:  100.500,
+		StorageServer: "nas-01",
+		WeightName:    "model.weights",
 	}
 }
 
@@ -107,8 +109,8 @@ func TestModelDAOSaveDuplicateName(t *testing.T) {
 	model2 := newTestModel()
 	model2.Name = baseName
 	model2.StorageServer = "nas-02"
-	model2.ModelPath = "/test/path/model_v2.weights"
-	model2.SizeMB = 200.25
+	model2.WeightName = "model_v2.weights"
+	model2.WeightSizeMB = 200.25
 
 	err := modelDAO.Save(context.Background(), model1)
 	assert.NoError(t, err, "first save should succeed")
@@ -129,6 +131,43 @@ func TestModelDAOSaveDuplicateName(t *testing.T) {
 	got, err := modelDAO.FindByID(context.Background(), model1.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, model2.StorageServer, got.StorageServer)
-	assert.Equal(t, model2.ModelPath, got.ModelPath)
-	assert.Equal(t, model2.SizeMB, got.SizeMB)
+	assert.Equal(t, model2.WeightName, got.WeightName)
+	assert.Equal(t, model2.WeightSizeMB, got.WeightSizeMB)
+}
+
+func TestModelDAOUpdateMetadataByID(t *testing.T) {
+	modelDAO := dao.NewModelDAO()
+	model := newTestModel()
+
+	err := modelDAO.Save(context.Background(), model)
+	assert.NoError(t, err, "setup save should succeed")
+	assert.NotZero(t, model.ID, "setup model id should be generated")
+
+	t.Cleanup(func() {
+		if model.ID > 0 && modelDAO.DB != nil {
+			_ = modelDAO.DB.Delete(&entity.Model{}, model.ID).Error
+		}
+	})
+
+	updatedModel, err := modelDAO.UpdateMetadataByID(context.Background(), model.ID, map[string]interface{}{
+		"name":           model.Name + "_updated",
+		"version":        1.10,
+		"weight_name":    "updated_weight.pt",
+		"weight_size_mb": 222.333,
+	})
+	assert.NoError(t, err, "update metadata should succeed")
+	assert.NotNil(t, updatedModel)
+	assert.Equal(t, model.ID, updatedModel.ID)
+	assert.Equal(t, model.Name+"_updated", updatedModel.Name)
+	assert.InDelta(t, 1.10, updatedModel.Version, 0.0001)
+	assert.Equal(t, "updated_weight.pt", updatedModel.WeightName)
+	assert.InDelta(t, 222.333, updatedModel.WeightSizeMB, 0.0001)
+}
+
+func TestModelDAOUpdateMetadataByIDInvalidID(t *testing.T) {
+	modelDAO := dao.NewModelDAO()
+	_, err := modelDAO.UpdateMetadataByID(context.Background(), 0, map[string]interface{}{
+		"name": "invalid",
+	})
+	assert.True(t, errors.Is(err, dao.ErrInvalidID), "id=0 should return ErrInvalidID")
 }

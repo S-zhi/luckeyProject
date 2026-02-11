@@ -1,154 +1,225 @@
-# Lucky Project - Gin 四层架构示例项目
+# Lucky Project
 
-本项目是一个基于 Go 语言和 Gin 框架开发的 RESTful API 示例项目，采用了标准的四层架构设计（Handler, Service, DAO, Entity），支持远程数据库配置。
+基于 Go + Gin + GORM 的模型/数据集管理后端，采用四层结构：`handler -> service -> dao -> entity`。
 
-## 1. 项目架构
+## 功能概览
+- 模型与数据集元信息管理（`models` / `datasets`）
+- 训练结果管理（`lucky_model_training_result`）
+- 文件上传（模型、数据集）
+- 百度网盘下载到本地
+- `storage_server` 多值管理（JSON 数组语义）
+- 基于固定目录 + 文件名的路径解析（避免依赖 DB 中历史路径字符串）
 
-项目严格遵循以下四层架构，以实现逻辑解耦和高可维护性：
+## 固定存储路径策略
+系统统一按 `weights/datasets` 分类，并通过 `storage_target` 选择根目录：
 
-- **Handler (处理层)**: 负责处理 HTTP 请求，绑定 URL 参数，并调用 Service 层。
-- **Service (业务逻辑层)**: 存放核心业务逻辑，封装分页结果。
-- **DAO (数据访问层)**: 负责与数据库交互，执行分页、过滤和模糊搜索。
-- **Entity (实体层)**: 定义数据库模型及通用查询 DTO。
+- `backend`
+  - weights: `/Users/wenzhengfeng/code/go/lucky_project/weights`
+  - datasets: `/Users/wenzhengfeng/code/go/lucky_project/datasets`
+- `baidu_netdisk`
+  - weights: `/project/luckyProject/weights`
+  - datasets: `/project/luckyProject/datasets`
+- `other_local`
+  - weights: `/project/luckyProject/weights`
+  - datasets: `/project/luckyProject/datasets`
 
-## 2. 数据模型抽象 (Data Models)
+说明：
+- 模型文件路径由 `weight_name + storage_target + weights` 解析。
+- 数据集路径由 `file_name + storage_target + datasets` 解析。
 
-### 模型实体 (Model) - 表名: lucky_model_information
-| 字段 | 类型 | 说明 |
-| :--- | :--- | :--- |
-| id | uint | 主键 ID |
-| model_name | string | 基座模型名称_数据集 |
-| model_type | int8 | 1:检测｜2:分割｜3:分类｜4:姿态估计｜5:OBB |
-| model_version| decimal| 模型版本 |
-| is_latest | bool | 是否最新 |
-| is_basic_model| bool | 是否基础模型 |
-| algorithm | string | 模型使用的算法 |
-| framework | string | 模型框架 |
-| weight_size_mb| float | 权重大小(MB) |
-| weight_path | string | 权重文件路径 (本地) |
-| dataset_id | uint | 数据集主键 ID |
-| create_time | time | 创建时间 |
+## 关键数据字段
+### models（当前生效）
+- `name` + `version` 作为唯一键
+- `storage_server`（JSON）
+- `base_model_id`
+- `algorithm_id`
+- `task_type`
+- `framework`
+- `weight_size_mb`
+- `weight_name`（标准文件名，不含目录）
 
-### 数据集实体 (Dataset) - 表名: lucky_dataset_information
-| 字段 | 类型 | 说明 |
-| :--- | :--- | :--- |
-| id | uint | 主键 ID |
-| dataset_name | string | 数据集名称 |
-| dataset_type | int8 | 1:检测｜2:分割｜3:分类｜4:姿态估计｜5:OBB |
-| dataset_version| decimal| 数据集版本 |
-| is_latest | bool | 是否最新版本 |
-| sample_count | uint | 样本数量 |
-| label_count | uint | 标注数量 |
-| storage_type | int8 | 存储类型 1:本地｜2:OSS｜3:S3 |
-| dataset_path | string | 数据集存储路径 (本地) |
-| annotation_type| int8 | 标注格式 1:YOLO｜2:COCO｜3:VOC |
-| description | string | 数据集描述 |
-| create_time | time | 创建时间 |
-| update_time | time | 更新时间 |
+### datasets
+- `name`（唯一）
+- `storage_server`（JSON）
+- `dataset_path`（兼容展示字段）
+- `file_name`（标准文件名，不含目录）
+- `task_type` / `dataset_format` / `version` / `size_mb` 等
 
-### 训练结果实体 (ModelTrainingResult) - 表名: lucky_model_training_result
-| 字段 | 类型 | 说明 |
-| :--- | :--- | :--- |
-| id | uint | 主键 ID |
-| model_id | uint | 关联的模型 ID |
-| dataset_id | uint | 训练使用的数据集 ID |
-| dataset_version| decimal| 数据集版本 |
-| training_status| int8 | 1:训练中, 2:成功, 3:失败, 4:中断 |
-| metric_detail | json | 评估指标 (mAP, recall 等) |
-| weight_path | string | 产出权重文件路径 |
-| comet_log_url | string | Comet 实验日志 URL |
-| train_start_time| time | 训练开始时间 |
-| train_end_time | time | 训练结束时间 |
-| create_time | time | 记录创建时间 |
+## 文件命名规则
+上传时生成标准文件名：
+- 格式：`用户命名_哈希uuid.后缀`
+- 哈希段：`sha1(uuidv4)[:12]`
+- 若未传 `artifact_name`，则使用原始文件名（去后缀）作为前缀
 
-## 3. 接口清单 (RESTful API)
+示例：`yolov7_HRW_4.2k_1a2b3c4d5e6f.pt`
 
-### 通用查询参数 (Query Parameters)
-所有 `GET` 列表接口均支持以下参数：
-- `page`: 页码 (默认 1)
-- `page_size`: 每页条数 (默认 10)
-- `name`: 按名称精确过滤 (对应 `model_name` 或 `dataset_name`)
-- `keyword`: 全局关键字搜索 (模糊匹配名称/描述)
+## 主要接口
+Base URL: `http://localhost:8080/v1`
 
-#### 模型特有高级查询 (仅 Model 列表支持)
-支持多个指标组合过滤：
-- `model_type`: 模型类型 (1:检测, 2:分割, 3:分类, 4:姿态估计, 5:OBB)
-- `is_latest`: 是否最新 (true/false)
-- `is_basic_model`: 是否基础模型 (true/false)
-- `algorithm`: 使用的算法 (如 yolov8)
-- `framework`: 模型框架 (如 pytorch)
-- `dataset_id`: 关联的数据集 ID
+### 模型
+- `POST /models`
+- `GET /models`
+- `PATCH /models/:id`（更新模型元信息）
+- `GET /models/:id/storage-server`
+- `PATCH /models/:id/storage-server`
+- `POST /models/upload`
 
-#### 数据集特有高级查询 (仅 Dataset 列表支持)
-支持多个指标组合过滤：
-- `dataset_type`: 数据集类型 (1:检测, 2:分割等)
-- `storage_type`: 存储类型 (1:本地, 2:OSS, 3:S3)
-- `annotation_type`: 标注格式 (1:YOLO, 2:COCO, 3:VOC)
-- `is_latest`: 是否最新 (true/false)
+### 数据集
+- `POST /datasets`
+- `GET /datasets`
+- `GET /datasets/:id/storage-server`
+- `PATCH /datasets/:id/storage-server`
+- `POST /datasets/upload`
 
-#### 训练结果高级查询 (仅 TrainingResult 列表支持)
-- `training_model_id`: 关联的模型 ID
-- `training_dataset_id`: 关联的数据集 ID
-- `training_status`: 训练状态 (1-4)
+### 训练结果
+- `POST /training-results`
+- `GET /training-results`
 
-#### 排序规则 (Order By)
-- `weight_sort`: 权重大小 (WeightSizeMB) 排序。可选值: `asc` (升序), `desc` (降序)。默认按 ID 降序。
+### 百度网盘
+- `POST /baidu/download`
 
-### 模型 (Models)
-- **POST `/v1/models`**: 保存模型实体
-- **GET `/v1/models`**: 分页查询模型列表
-    - 示例 (组合查询): `/v1/models?algorithm=yolov8&framework=pytorch&weight_sort=desc`
+## 上传接口字段
+`POST /models/upload` 与 `POST /datasets/upload`（`multipart/form-data`）支持：
+- `file`（必填）
+- `artifact_name`（可选）
+- `storage_target`（可选，默认 `backend`）
+- `storage_server`（可选，记录层字段）
+- `upload_to_baidu`（可选）
+- `subdir`（可选，兼容字段，固定路径模式下已忽略）
 
-### 数据集 (Datasets)
-- **POST `/v1/datasets`**: 保存数据集实体
-- **GET `/v1/datasets`**: 分页查询数据集列表
+返回包含：
+- `file_name`
+- `storage_target`
+- `resolved_path`
+- `paths.backend_path / paths.baidu_path / paths.other_local_path`
+- `baidu_uploaded` / `baidu_path`
 
-### 训练结果 (Training Results)
-- **POST `/v1/training-results`**: 保存训练结果
-- **GET `/v1/training-results`**: 分页查询训练结果
+## 更新模型元信息
+接口：`PATCH /v1/models/:id`
 
-## 4. 响应格式
+支持更新字段（部分更新）：
+- `name`
+- `version`
+- `base_model_id`
+- `algorithm_id`（可空）
+- `task_type`
+- `description`（可空）
+- `framework`（可空）
+- `weight_size_mb`
+- `paper`（可空）
+- `params_url`（可空）
+- `storage_server` 或 `storage_servers`（list 语义）
+- `weight_name`
 
-### 分页查询返回
-```json
-{
-  "total": 100,
-  "list": [
-    { "id": 1, "name": "...", ... },
-    { "id": 2, "name": "...", ... }
-  ]
-}
+限制：
+- `id`、`create_time` 不可修改。
+
+## 百度下载（记录驱动模式）
+`POST /baidu/download` 支持两种方式：
+
+1. 显式传 `remote_path`
+2. 记录驱动（推荐）
+   - 传 `model_id` 或 `dataset_id`
+   - 传 `storage_target=baidu_netdisk`
+   - 不传 `remote_path`
+   - 服务端自动拼路径：
+     - 模型：`/project/luckyProject/weights/{weight_name}`
+     - 数据集：`/project/luckyProject/datasets/{file_name}`
+
+下载成功后会把 `backend` 追加到对应记录的 `storage_server`（数组语义）。
+
+## 数据库（models 表）
+当前后端按以下 `models` 结构工作：
+
+```sql
+create table models
+(
+    id bigint unsigned auto_increment comment '主键id'
+        primary key,
+    name varchar(128) not null comment '模型名称（可修改）',
+    version decimal(5,2) not null comment '模型版本（1.00开始递增）',
+    base_model_id bigint unsigned not null default 0 comment '基础模型id（0代表未知，可自引用）',
+    algorithm_id varchar(128) null comment '算法标识（可空）',
+    task_type varchar(32) not null comment '任务类型（detect/segment/classify/pose/obb等）',
+    description text null comment '描述（可空）',
+    framework varchar(64) null comment '模型框架（如pytorch/ultralytics/sklearn等）',
+    weight_size_mb decimal(10,3) not null comment '模型权重大小（MB）',
+    create_time timestamp(3) default current_timestamp(3) not null comment '创建时间',
+    paper varchar(1024) null comment '相关论文（URL/DOI等，可空）',
+    params_url varchar(1024) null comment '模型参数URL（可空）',
+    storage_server json null comment '存储位置列表（如["baidu_netdisk","backend"]）',
+    weight_name varchar(128) not null comment '权重文件名称',
+    constraint uk_model_name_version
+        unique (name, version)
+)
+comment '模型资产表';
 ```
 
-## 5. 快速启动
-
-### 配置数据库
-修改 `config/config.yaml`：
+## 快速启动
+### 1. 配置
+编辑 `config/config.yaml`：
 ```yaml
+server:
+  port: 8080
+
 db:
+  driver: mysql
   host: 127.0.0.1
   port: 3306
   user: root
-  password: password
-  dbname: lucky_db
+  password: your_password
+  dbname: luckydb
+
+baidu_pan:
+  access_token: ""
+  is_svip: true
+  log_path: "logs/baiduPanSDK.log"
+
+log:
+  path: "logs/server.log"
 ```
 
-### 运行
+### 2. 启动服务
 ```bash
-go mod tidy
 go run main.go
 ```
 
-## 6. 接口测试
-
-### 自动化测试 (Go Test)
-执行以下命令运行全量接口集成测试：
+### 3. 运行测试
 ```bash
-go test -v ./internal/handler/v1/...
+go test ./...
 ```
 
-### 手动快速测试 (Shell Script)
-项目根目录下提供了 `test_api.sh` 脚本，可快速验证核心接口：
-```bash
-./test_api.sh
-```
+## 说明
+- 更完整字段说明与响应示例请查看 `API_DOC.md`。
+- 日志文件：
+  - 服务日志：`logs/server.log`
+  - 百度 SDK 日志：`logs/baiduPanSDK.log`
+
+
+
+
+
+
+
+## 二、数据库资源表
+
+a. 未声明可以修改的就是不可修改。
+b. 未声明可以为空的就是不可为空。
+
+
+| 序号 |      字段      | 类型         |                             属性                             | 说明                   | 附加内容                                                     |
+| :--: | :------------: | ------------ | :----------------------------------------------------------: | ---------------------- | ------------------------------------------------------------ |
+|  1   |       id       | uint         |       <mark style="background: #FFB8EBA6;">标识</mark>       | 主键id，用来标识record |                                                              |
+|  2   |      name      | string       |  <mark style="background: #FFB8EBA6;">标识，可以修改</mark>  | 模型名称               | {基座模型名称}-{优化算法}-{数据集名称/分类名称}              |
+|  3   |    version     | decimal(5,3) |  <mark style="background: #FFB8EBA6;">标识，可以修改</mark>  | 模型版本               | 1.0开始递增；<br>1.x递增的为同模型，算法下的训练；<br>x.0 大批次更新是优化算法出现了更新； |
+|  4   | base_model_id  | bool         |  <mark style="background: #6598f0;">属性<br>可以改变</mark>  | 基础模型id             | 0代表未知 ，可以自引用，默认为0                              |
+|  5   |  algorithm_id  | string       | <mark style="background: #6598f0;">属性<br>可以改变<br>可以为空</mark> | 算法                   | <br>                                                         |
+|  6   |   task_type    | string       |        <mark style="background: #6598f0;">属性</mark>        | 任务类型               | 任务类型（detect/segment/classify/pose/obb等）               |
+|  7   |  description   | string       | <mark style="background: #6598f0;">属性<br>可以改变<br>可以为空</mark> | 描述                   |                                                              |
+|  8   |   framework    | string       | <mark style="background: #6598f0;">属性<br>可以改变<br>可以为空</mark> | 模型框架               |                                                              |
+|  9   | weight_size_mb | float        |        <mark style="background: #6598f0;">属性</mark>        | 模型权重大小           |                                                              |
+|  10  |  create_time   | time         |        <mark style="background: #6598f0;">属性</mark>        | 创建时间               |                                                              |
+|  11  |     paper      | string       | <mark style="background: #6598f0;">属性<br>可以改变<br>可以为空</mark> | 相关论文               | （URL/DOI/引用信息，可空）                                   |
+|  12  |   params_url   | string       | <mark style="background: #6598f0;">属性<br>可以改变<br>可以为空</mark> | 模型参数URL            | （如config/args/yaml等，可空）                               |
+|  13  | storage_server | string       | <mark style="background: #f374f7;">存储字段<br>可以改变<br>可以为空</mark> | 训练结果存储服务器标识 | 本身是一个list(string) ， ["baidu_netdisk" ，"backend" ]     |
+|  14  |  weight_name   | string       | <mark style="background: #f374f7;">存储字段<br>可以改变<br></mark> | 权重模型名称           |                                                              |

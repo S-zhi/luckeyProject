@@ -14,6 +14,7 @@ func SetupRouter() *gin.Engine {
 	modelController := v2.NewModelController()
 	datasetController := v2.NewDatasetController()
 	trainingController := v2.NewTrainingResultController()
+	baiduController := v2.NewBaiduController()
 
 	r := gin.New()
 	r.MaxMultipartMemory = 256 << 20 // 256MB
@@ -48,6 +49,9 @@ func SetupRouter() *gin.Engine {
 		{
 			models.POST("", modelController.CreateModel)
 			models.GET("", modelController.GetAllModels)
+			models.PATCH("/:id", modelController.UpdateModelMetadata)
+			models.GET("/:id/storage-server", modelController.GetModelStorageServers)
+			models.PATCH("/:id/storage-server", modelController.UpdateModelStorageServers)
 			models.POST("/upload", modelController.UploadModelFile)
 		}
 
@@ -56,6 +60,8 @@ func SetupRouter() *gin.Engine {
 		{
 			datasets.POST("", datasetController.CreateDataset)
 			datasets.GET("", datasetController.GetAllDatasets)
+			datasets.GET("/:id/storage-server", datasetController.GetDatasetStorageServers)
+			datasets.PATCH("/:id/storage-server", datasetController.UpdateDatasetStorageServers)
 			datasets.POST("/upload", datasetController.UploadDatasetFile)
 		}
 
@@ -64,6 +70,12 @@ func SetupRouter() *gin.Engine {
 		{
 			trainings.POST("", trainingController.CreateTrainingResult)
 			trainings.GET("", trainingController.GetAllResults)
+		}
+
+		// Baidu Pan routes
+		baidu := v1Group.Group("/baidu")
+		{
+			baidu.POST("/download", baiduController.DownloadFileToLocal)
 		}
 	}
 

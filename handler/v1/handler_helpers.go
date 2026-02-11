@@ -11,7 +11,7 @@ import (
 
 func writeHTTPError(ctx *gin.Context, err error) {
 	switch {
-	case errors.Is(err, dao.ErrInvalidID), errors.Is(err, dao.ErrNilEntity):
+	case errors.Is(err, dao.ErrInvalidID), errors.Is(err, dao.ErrNilEntity), errors.Is(err, dao.ErrInvalidAction):
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	case errors.Is(err, dao.ErrAlreadyExists):
 		ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
