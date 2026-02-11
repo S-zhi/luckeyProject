@@ -39,6 +39,9 @@
   - `base_model_id`
   - `train_task_id`
   - `description`
+- 规则:
+  - 后端会将最终模型名标准化为 `name_version`（例如 `yolo26n_v1.0.0`）。
+  - 如果标准化后名称已存在，按 `name` 执行幂等覆盖更新（不再因重复名报错）。
 
 示例：
 ```json
@@ -73,6 +76,33 @@
 
 示例：
 `/v1/models?impl_type=yolo_ultralytics&task_type=detect&size_sort=desc`
+
+### 3.3 上传模型文件
+- 接口: `POST /models/upload`
+- Content-Type: `multipart/form-data`
+- 表单字段:
+  - `file` (必填): 待上传模型文件
+  - `subdir` (可选): 上传子目录（相对目录）
+  - `storage_server` (可选): 上传目标服务器标识。默认 `backend`。当前版本无论传什么值，都会先落到后端本地存储。
+  - `upload_to_baidu` (可选): 是否上传到百度网盘，布尔值，默认 `false`。支持 `true/false/1/0/t/f`。
+- 返回:
+  - `saved_path` 可直接用于 `model_path`
+  - `storage_server` 为最终记录的服务器标识（默认 `backend`）
+  - 文件命名规则：优先使用原始文件名（清洗非法字符后），同目录重名时自动追加 `_1`、`_2` 递增后缀。
+  - `upload_to_baidu`: 本次请求是否要求上传百度网盘
+  - `baidu_uploaded`: 百度网盘是否上传成功
+  - `baidu_path`: 百度网盘目标路径（仅在 `baidu_uploaded=true` 时有值）
+  - 百度网盘模型固定目录常量：`/project/luckyProject/weights`
+  - 当 `upload_to_baidu=true` 或 `storage_server=baidu` 时，后端会先将文件落盘到本地目录 `/Users/wenzhengfeng/code/go/lucky_project/weights`（可拼接 `subdir`），再调用百度网盘上传。
+
+示例：
+```bash
+curl -X POST "http://localhost:8080/v1/models/upload" \
+  -F "file=@/path/to/model.pt" \
+  -F "subdir=demo" \
+  -F "storage_server=nas-01" \
+  -F "upload_to_baidu=true"
+```
 
 ---
 
@@ -133,6 +163,33 @@
 
 示例：
 `/v1/datasets?task_type=detect&dataset_format=yolo&size_sort=desc`
+
+### 4.3 上传数据集文件
+- 接口: `POST /datasets/upload`
+- Content-Type: `multipart/form-data`
+- 表单字段:
+  - `file` (必填): 待上传数据集文件（例如 zip）
+  - `subdir` (可选): 上传子目录（相对目录）
+  - `storage_server` (可选): 上传目标服务器标识。默认 `backend`。当前版本无论传什么值，都会先落到后端本地存储。
+  - `upload_to_baidu` (可选): 是否上传到百度网盘，布尔值，默认 `false`。支持 `true/false/1/0/t/f`。
+- 返回:
+  - `saved_path` 可直接用于 `dataset_path`
+  - `storage_server` 为最终记录的服务器标识（默认 `backend`）
+  - 文件命名规则：优先使用原始文件名（清洗非法字符后），同目录重名时自动追加 `_1`、`_2` 递增后缀。
+  - `upload_to_baidu`: 本次请求是否要求上传百度网盘
+  - `baidu_uploaded`: 百度网盘是否上传成功
+  - `baidu_path`: 百度网盘目标路径（仅在 `baidu_uploaded=true` 时有值）
+  - 百度网盘数据集固定目录常量：`/project/luckyProject/datasets`
+  - 当 `upload_to_baidu=true` 或 `storage_server=baidu` 时，后端会先将文件落盘到本地目录 `/Users/wenzhengfeng/code/go/lucky_project/datasets`（可拼接 `subdir`），再调用百度网盘上传。
+
+示例：
+```bash
+curl -X POST "http://localhost:8080/v1/datasets/upload" \
+  -F "file=@/path/to/dataset.zip" \
+  -F "subdir=demo" \
+  -F "storage_server=nas-01" \
+  -F "upload_to_baidu=true"
+```
 
 ---
 

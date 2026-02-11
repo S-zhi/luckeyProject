@@ -7,3 +7,9 @@ db:
   user: kara
   password: "@Wd3dad28dlvn396"
   dbname: luckydb
+baidu_pan:
+  access_token: "123.8ddd8010a2c14898b50dd162c843dd2f.YBzs9TPADNx7YXUWLIyBS8Ieba0zZ8mCwuhDlZ5.tOl86A"
+  is_svip: true
+  log_path: "logs/baiduPanSDK.log"
+log:
+  path: "logs/server.log"

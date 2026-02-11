@@ -6,6 +6,8 @@ import (
 	"fmt"
 	entity2 "lucky_project/entity"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -44,5 +46,65 @@ func TestDatasetAPI(t *testing.T) {
 		var result entity2.PageResult
 		json.Unmarshal(w.Body.Bytes(), &result)
 		assert.True(t, result.Total >= 1)
+	})
+
+	// 3. 测试上传数据集文件
+	t.Run("Upload Dataset File", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "dataset.zip")
+		err := os.WriteFile(filePath, []byte("mock dataset zip content"), 0o644)
+		assert.NoError(t, err)
+
+		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/datasets/upload", "file", filePath, map[string]string{
+			"subdir":         "ut",
+			"storage_server": "nas-02",
+		})
+		assert.Equal(t, http.StatusCreated, w.Code)
+
+		var resp map[string]interface{}
+		err = json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+
+		savedPath, ok := resp["saved_path"].(string)
+		assert.True(t, ok)
+		assert.NotEmpty(t, savedPath)
+		assert.Equal(t, "nas-02", resp["storage_server"])
+		assert.Equal(t, false, resp["upload_to_baidu"])
+		assert.Equal(t, false, resp["baidu_uploaded"])
+		_, err = os.Stat(savedPath)
+		assert.NoError(t, err)
+
+		t.Cleanup(func() {
+			_ = os.Remove(savedPath)
+		})
+	})
+
+	t.Run("Upload Dataset File Default Storage Server", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "dataset_default.zip")
+		err := os.WriteFile(filePath, []byte("mock dataset zip content"), 0o644)
+		assert.NoError(t, err)
+
+		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/datasets/upload", "file", filePath, map[string]string{
+			"subdir": "ut/default",
+		})
+		assert.Equal(t, http.StatusCreated, w.Code)
+
+		var resp map[string]interface{}
+		err = json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		assert.Equal(t, "backend", resp["storage_server"])
+		assert.Equal(t, false, resp["upload_to_baidu"])
+		assert.Equal(t, false, resp["baidu_uploaded"])
+
+		savedPath, ok := resp["saved_path"].(string)
+		assert.True(t, ok)
+		assert.NotEmpty(t, savedPath)
+		_, err = os.Stat(savedPath)
+		assert.NoError(t, err)
+
+		t.Cleanup(func() {
+			_ = os.Remove(savedPath)
+		})
 	})
 }

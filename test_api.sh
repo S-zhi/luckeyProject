@@ -59,3 +59,25 @@ echo -e "\n"
 echo "=== 6. 测试训练结果过滤查询 ==="
 curl -sS -X GET "$BASE_URL/training-results?training_status=2"
 echo -e "\n"
+
+TMP_MODEL_FILE=$(mktemp /tmp/lucky_model_XXXXXX.pt)
+TMP_DATASET_FILE=$(mktemp /tmp/lucky_dataset_XXXXXX.zip)
+echo "mock model content" > "$TMP_MODEL_FILE"
+echo "mock dataset content" > "$TMP_DATASET_FILE"
+
+echo "=== 7. 测试上传模型文件 ==="
+curl -sS -X POST "$BASE_URL/models/upload" \
+  -F "file=@${TMP_MODEL_FILE}" \
+  -F "subdir=smoke" \
+  -F "storage_server=nas-01" \
+  -F "upload_to_baidu=false"
+echo -e "\n"
+
+echo "=== 8. 测试上传数据集文件（不传 storage_server，默认 backend） ==="
+curl -sS -X POST "$BASE_URL/datasets/upload" \
+  -F "file=@${TMP_DATASET_FILE}" \
+  -F "subdir=smoke" \
+  -F "upload_to_baidu=false"
+echo -e "\n"
+
+rm -f "$TMP_MODEL_FILE" "$TMP_DATASET_FILE"
