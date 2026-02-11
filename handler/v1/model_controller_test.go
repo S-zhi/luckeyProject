@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -17,14 +18,15 @@ import (
 func TestModelAPI(t *testing.T) {
 	// 1. 测试创建模型
 	t.Run("Create Model", func(t *testing.T) {
+		algorithmID := "yolo_ultralytics"
 		model := entity2.Model{
 			Name:          fmt.Sprintf("TestModel_%d", time.Now().UnixNano()),
+			Version:       1.00,
+			BaseModelID:   0,
+			AlgorithmID:   &algorithmID,
+			WeightName:    "test_weight.pt",
 			StorageServer: "nas-01",
-			ModelPath:     "/tmp/test_weight.pt",
-			ImplType:      "yolo_ultralytics",
-			DatasetID:     1,
-			SizeMB:        95.5,
-			Version:       "v1.0.0",
+			WeightSizeMB:  95.5,
 			TaskType:      "detect",
 		}
 		body, _ := json.Marshal(model)
@@ -34,25 +36,26 @@ func TestModelAPI(t *testing.T) {
 
 		var resp entity2.Model
 		json.Unmarshal(w.Body.Bytes(), &resp)
-		assert.Equal(t, fmt.Sprintf("%s_%s", model.Name, model.Version), resp.Name)
+		assert.Equal(t, model.Name, resp.Name)
 		assert.True(t, resp.ID > 0)
 	})
 
 	t.Run("Create Model Duplicate Name Should Upsert", func(t *testing.T) {
+		algorithmID := "yolo_ultralytics"
 		model1 := entity2.Model{
 			Name:          fmt.Sprintf("DupModel_%d", time.Now().UnixNano()),
+			Version:       1.00,
+			BaseModelID:   0,
+			AlgorithmID:   &algorithmID,
+			WeightName:    "test_weight_dup_1.pt",
 			StorageServer: "nas-01",
-			ModelPath:     "/tmp/test_weight_dup_1.pt",
-			ImplType:      "yolo_ultralytics",
-			DatasetID:     1,
-			SizeMB:        95.5,
-			Version:       "v1.0.0",
+			WeightSizeMB:  95.5,
 			TaskType:      "detect",
 		}
 		model2 := model1
 		model2.StorageServer = "nas-02"
-		model2.ModelPath = "/tmp/test_weight_dup_2.pt"
-		model2.SizeMB = 96.7
+		model2.WeightName = "test_weight_dup_2.pt"
+		model2.WeightSizeMB = 96.7
 
 		body1, _ := json.Marshal(model1)
 		body2, _ := json.Marshal(model2)
@@ -72,8 +75,78 @@ func TestModelAPI(t *testing.T) {
 		err = json.Unmarshal(w2.Body.Bytes(), &resp2)
 		assert.NoError(t, err)
 		assert.Equal(t, resp1.ID, resp2.ID)
-		assert.Equal(t, model2.StorageServer, resp2.StorageServer)
-		assert.Equal(t, model2.ModelPath, resp2.ModelPath)
+		assert.True(t, storageServerContains(resp2.StorageServer, model2.StorageServer))
+		assert.Equal(t, model2.WeightName, resp2.WeightName)
+	})
+
+	t.Run("Update Model Metadata", func(t *testing.T) {
+		algorithmID := "algo_before_update"
+		model := entity2.Model{
+			Name:          fmt.Sprintf("PatchModel_%d", time.Now().UnixNano()),
+			Version:       1.00,
+			BaseModelID:   0,
+			AlgorithmID:   &algorithmID,
+			WeightName:    "patch_model_origin.pt",
+			StorageServer: "backend",
+			WeightSizeMB:  88.8,
+			TaskType:      "detect",
+		}
+		createBody, _ := json.Marshal(model)
+		createResp := performRequest(testRouter, "POST", "/v1/models", bytes.NewBuffer(createBody))
+		assert.Equal(t, http.StatusCreated, createResp.Code)
+
+		var created entity2.Model
+		err := json.Unmarshal(createResp.Body.Bytes(), &created)
+		assert.NoError(t, err)
+		assert.NotZero(t, created.ID)
+
+		updateReq := map[string]interface{}{
+			"name":           created.Name + "_updated",
+			"version":        1.10,
+			"base_model_id":  0,
+			"algorithm_id":   "algo_after_update",
+			"task_type":      "detect",
+			"description":    "updated description",
+			"framework":      "pytorch",
+			"weight_size_mb": 123.456,
+			"paper":          "https://example.com/paper",
+			"params_url":     "https://example.com/params",
+			"storage_servers": []string{
+				"backend",
+				"baidu_netdisk",
+			},
+			"weight_name": "patch_model_updated.pt",
+		}
+		updateBody, _ := json.Marshal(updateReq)
+		updateURL := fmt.Sprintf("/v1/models/%d", created.ID)
+		updateResp := performRequest(testRouter, "PATCH", updateURL, bytes.NewBuffer(updateBody))
+		assert.Equal(t, http.StatusOK, updateResp.Code)
+
+		var updated entity2.Model
+		err = json.Unmarshal(updateResp.Body.Bytes(), &updated)
+		assert.NoError(t, err)
+		assert.Equal(t, created.ID, updated.ID)
+		assert.Equal(t, updateReq["name"], updated.Name)
+		assert.InDelta(t, 1.10, updated.Version, 0.0001)
+		assert.Equal(t, "algo_after_update", derefString(updated.AlgorithmID))
+		assert.Equal(t, "updated description", derefString(updated.Description))
+		assert.Equal(t, "pytorch", derefString(updated.Framework))
+		assert.InDelta(t, 123.456, updated.WeightSizeMB, 0.0001)
+		assert.Equal(t, "https://example.com/paper", derefString(updated.Paper))
+		assert.Equal(t, "https://example.com/params", derefString(updated.ParamsURL))
+		assert.Equal(t, "patch_model_updated.pt", updated.WeightName)
+		assert.True(t, storageServerContains(updated.StorageServer, "backend"))
+		assert.True(t, storageServerContains(updated.StorageServer, "baidu_netdisk"))
+	})
+
+	t.Run("Update Model Metadata Reject Immutable Field", func(t *testing.T) {
+		req := map[string]interface{}{
+			"id": 100,
+		}
+		body, _ := json.Marshal(req)
+		w := performRequest(testRouter, "PATCH", "/v1/models/1", bytes.NewBuffer(body))
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Contains(t, w.Body.String(), "id is immutable")
 	})
 
 	// 2. 测试分页查询
@@ -89,7 +162,7 @@ func TestModelAPI(t *testing.T) {
 
 	// 3. 测试组合过滤
 	t.Run("Filter Models", func(t *testing.T) {
-		w := performRequest(testRouter, "GET", "/v1/models?impl_type=yolo_ultralytics&task_type=detect", nil)
+		w := performRequest(testRouter, "GET", "/v1/models?algorithm_id=yolo_ultralytics&task_type=detect", nil)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 
@@ -113,7 +186,7 @@ func TestModelAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
-			"subdir":         "ut",
+			"artifact_name":  "test_model",
 			"storage_server": "nas-01",
 		})
 		assert.Equal(t, http.StatusCreated, w.Code)
@@ -126,8 +199,11 @@ func TestModelAPI(t *testing.T) {
 		assert.True(t, ok)
 		assert.NotEmpty(t, savedPath)
 		assert.Equal(t, "nas-01", resp["storage_server"])
+		assert.Equal(t, "backend", resp["storage_target"])
 		assert.Equal(t, false, resp["upload_to_baidu"])
 		assert.Equal(t, false, resp["baidu_uploaded"])
+		fileName, _ := resp["file_name"].(string)
+		assert.True(t, regexp.MustCompile(`^test_model_[a-f0-9]{12}\.pt$`).MatchString(fileName), fileName)
 		_, err = os.Stat(savedPath)
 		assert.NoError(t, err)
 
@@ -143,7 +219,7 @@ func TestModelAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
-			"subdir": "ut/default",
+			"artifact_name": "default_model",
 		})
 		assert.Equal(t, http.StatusCreated, w.Code)
 
@@ -151,6 +227,7 @@ func TestModelAPI(t *testing.T) {
 		err = json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
 		assert.Equal(t, "backend", resp["storage_server"])
+		assert.Equal(t, "backend", resp["storage_target"])
 		assert.Equal(t, false, resp["upload_to_baidu"])
 		assert.Equal(t, false, resp["baidu_uploaded"])
 
@@ -171,14 +248,13 @@ func TestModelAPI(t *testing.T) {
 		err := os.WriteFile(filePath, []byte("mock model content"), 0o644)
 		assert.NoError(t, err)
 
-		subdir := fmt.Sprintf("ut/duplicate_%d", time.Now().UnixNano())
 		w1 := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
-			"subdir": subdir,
+			"artifact_name": "duplicate_model",
 		})
 		assert.Equal(t, http.StatusCreated, w1.Code)
 
 		w2 := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
-			"subdir": subdir,
+			"artifact_name": "duplicate_model",
 		})
 		assert.Equal(t, http.StatusCreated, w2.Code)
 
@@ -193,8 +269,11 @@ func TestModelAPI(t *testing.T) {
 		savedPath2, ok2 := resp2["saved_path"].(string)
 		assert.True(t, ok1)
 		assert.True(t, ok2)
-		assert.Equal(t, "duplicate_model.pt", filepath.Base(savedPath1))
-		assert.Equal(t, "duplicate_model_1.pt", filepath.Base(savedPath2))
+		fileName1, _ := resp1["file_name"].(string)
+		fileName2, _ := resp2["file_name"].(string)
+		assert.True(t, regexp.MustCompile(`^duplicate_model_[a-f0-9]{12}\.pt$`).MatchString(fileName1), fileName1)
+		assert.True(t, regexp.MustCompile(`^duplicate_model_[a-f0-9]{12}\.pt$`).MatchString(fileName2), fileName2)
+		assert.NotEqual(t, fileName1, fileName2)
 
 		t.Cleanup(func() {
 			_ = os.Remove(savedPath1)
@@ -209,10 +288,35 @@ func TestModelAPI(t *testing.T) {
 		assert.NoError(t, err)
 
 		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
-			"subdir":          "ut/invalid-bool",
+			"artifact_name":   "invalid_bool",
 			"upload_to_baidu": "not-bool",
 		})
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 		assert.Contains(t, w.Body.String(), "upload_to_baidu must be a boolean")
 	})
+}
+
+func storageServerContains(value, expected string) bool {
+	if value == expected {
+		return true
+	}
+
+	var list []string
+	if err := json.Unmarshal([]byte(value), &list); err != nil {
+		return false
+	}
+
+	for _, item := range list {
+		if item == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

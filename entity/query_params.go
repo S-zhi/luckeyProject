@@ -10,16 +10,18 @@ type QueryParams struct {
 	// models 表过滤字段
 	StorageServer string `form:"storage_server"`
 	TaskType      string `form:"task_type"`
-	ImplType      string `form:"impl_type"`
+	AlgorithmID   string `form:"algorithm_id"`
+	Framework     string `form:"framework"`
 	Version       string `form:"version"`
-	DatasetID     *uint  `form:"dataset_id"`
-	TrainTaskID   *uint  `form:"train_task_id"`
 	BaseModelID   *uint  `form:"base_model_id"`
-	SizeSort      string `form:"size_sort"` // size_mb 排序: asc|desc
+	SizeSort      string `form:"size_sort"` // weight_size_mb 排序: asc|desc
 
 	// 兼容旧参数
-	Algorithm  string `form:"algorithm"`   // 兼容映射到 impl_type
-	WeightSort string `form:"weight_sort"` // 兼容映射到 size_mb 排序
+	Algorithm   string `form:"algorithm"`     // 兼容映射到 algorithm_id
+	ImplType    string `form:"impl_type"`     // 兼容映射到 algorithm_id
+	WeightSort  string `form:"weight_sort"`   // 兼容映射到 weight_size_mb 排序
+	DatasetID   *uint  `form:"dataset_id"`    // 兼容旧参数（models 新表已不使用）
+	TrainTaskID *uint  `form:"train_task_id"` // 兼容旧参数（models 新表已不使用）
 
 	// 数据集特有过滤指标
 	DatasetFormat string `form:"dataset_format"`

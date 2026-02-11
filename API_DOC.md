@@ -26,34 +26,36 @@
 - 接口: `POST /models`
 - 必填字段（与 `models` 表一致）:
   - `name`
-  - `storage_server`
-  - `model_path`
-  - `impl_type`
-  - `dataset_id`
-  - `size_mb`
-  - `version`
+  - `version`（decimal，如 `1.00`）
+  - `base_model_id`（可传 `0`）
   - `task_type`
+  - `weight_size_mb`
+  - `weight_name`
+  - `storage_server`
 - 可选字段:
+  - `algorithm_id`
+  - `framework`
+  - `description`
   - `paper`
   - `params_url`
-  - `base_model_id`
-  - `train_task_id`
-  - `description`
+  - `file_name`（兼容旧字段，内部会映射到 `weight_name`）
+  - `model_path`（兼容旧字段，用于兜底提取文件名）
 - 规则:
-  - 后端会将最终模型名标准化为 `name_version`（例如 `yolo26n_v1.0.0`）。
-  - 如果标准化后名称已存在，按 `name` 执行幂等覆盖更新（不再因重复名报错）。
+  - 幂等键为 `(name, version)`，冲突时按该唯一键 upsert。
+  - 当 `weight_name` 为空时，会尝试从 `file_name` 或 `model_path` 提取 basename 回填（兼容旧客户端）。
 
 示例：
 ```json
 {
-  "name": "YOLOv8_det_v1",
-  "storage_server": "nas-01",
-  "model_path": "/data/models/yolov8_det_v1.pt",
-  "impl_type": "yolo_ultralytics",
-  "dataset_id": 1,
-  "size_mb": 95.5,
-  "version": "v1.0.0",
+  "name": "YOLOv8_det",
+  "version": 1.00,
+  "base_model_id": 0,
+  "algorithm_id": "yolo_ultralytics",
   "task_type": "detect",
+  "framework": "pytorch",
+  "weight_size_mb": 95.5,
+  "weight_name": "yolov8_det_7a1b2c3d4e5f.pt",
+  "storage_server": "[\"backend\"]",
   "description": "demo model"
 }
 ```
@@ -63,45 +65,115 @@
 - 过滤参数:
   - `storage_server`
   - `task_type`
-  - `impl_type`
+  - `algorithm_id`
+  - `framework`
   - `version`
-  - `dataset_id`
-  - `train_task_id`
   - `base_model_id`
 - 排序参数:
   - `size_sort=asc|desc`（推荐）
-  - `weight_sort=asc|desc`（兼容参数，内部映射到 `size_mb`）
+  - `weight_sort=asc|desc`（兼容参数，内部映射到 `weight_size_mb`）
 - 兼容参数:
-  - `algorithm`（内部映射到 `impl_type`）
+  - `algorithm` / `impl_type`（内部映射到 `algorithm_id`）
+  - `dataset_id` / `train_task_id`（旧字段，当前 schema 中会忽略）
 
 示例：
-`/v1/models?impl_type=yolo_ultralytics&task_type=detect&size_sort=desc`
+`/v1/models?algorithm_id=yolo_ultralytics&task_type=detect&size_sort=desc`
 
-### 3.3 上传模型文件
+### 3.3 更新模型元信息
+- 接口: `PATCH /models/{id}`
+- Content-Type: `application/json`
+- 说明:
+  - 该接口用于修改模型元信息，支持部分字段更新（只传要更新的字段）。
+  - 不允许修改：`id`、`create_time`。
+  - `storage_server` 可传字符串、JSON 字符串或数组；也可传 `storage_servers` 数组。
+- 可更新字段:
+  - `name`
+  - `version`
+  - `base_model_id`
+  - `algorithm_id`（可空）
+  - `task_type`
+  - `description`（可空）
+  - `framework`（可空）
+  - `weight_size_mb`
+  - `paper`（可空）
+  - `params_url`（可空）
+  - `storage_server` / `storage_servers`
+  - `weight_name`
+- 返回:
+  - 更新后的完整模型记录。
+
+示例：
+```bash
+curl -X PATCH "http://localhost:8080/v1/models/1" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "YOLOv8_det_optimized",
+    "version": 1.101,
+    "algorithm_id": "yolo_ultralytics_v2",
+    "framework": "pytorch",
+    "weight_size_mb": 123.456,
+    "storage_servers": ["backend", "baidu_netdisk"],
+    "weight_name": "yolov8_det_optimized.pt"
+  }'
+```
+
+### 3.4 上传模型文件
 - 接口: `POST /models/upload`
 - Content-Type: `multipart/form-data`
 - 表单字段:
   - `file` (必填): 待上传模型文件
-  - `subdir` (可选): 上传子目录（相对目录）
-  - `storage_server` (可选): 上传目标服务器标识。默认 `backend`。当前版本无论传什么值，都会先落到后端本地存储。
+  - `artifact_name` (可选): 用户自定义文档名（用于生成标准文件名）
+  - `storage_target` (可选): 存储目标，支持 `backend|baidu_netdisk|other_local`，默认 `backend`
+  - `storage_server` (可选): 记录层的存储标识（兼容字段，不参与路径计算），默认 `backend`
   - `upload_to_baidu` (可选): 是否上传到百度网盘，布尔值，默认 `false`。支持 `true/false/1/0/t/f`。
+  - `subdir` (可选): 兼容字段，已废弃；固定目录模式下忽略。
 - 返回:
-  - `saved_path` 可直接用于 `model_path`
-  - `storage_server` 为最终记录的服务器标识（默认 `backend`）
-  - 文件命名规则：优先使用原始文件名（清洗非法字符后），同目录重名时自动追加 `_1`、`_2` 递增后缀。
+  - `file_name`: 标准文件名，格式 `artifact_name_哈希uuid.后缀`
+  - `storage_target`: 最终存储目标
+  - `resolved_path`: 本次后端实际写入路径
+  - `saved_path`: 兼容字段，同 `resolved_path`
+  - `paths`: 三类固定路径（`backend_path` / `baidu_path` / `other_local_path`）
+  - `storage_server`: 记录层存储标识（兼容）
   - `upload_to_baidu`: 本次请求是否要求上传百度网盘
   - `baidu_uploaded`: 百度网盘是否上传成功
   - `baidu_path`: 百度网盘目标路径（仅在 `baidu_uploaded=true` 时有值）
-  - 百度网盘模型固定目录常量：`/project/luckyProject/weights`
-  - 当 `upload_to_baidu=true` 或 `storage_server=baidu` 时，后端会先将文件落盘到本地目录 `/Users/wenzhengfeng/code/go/lucky_project/weights`（可拼接 `subdir`），再调用百度网盘上传。
+  - 固定目录:
+    - 后端: `/Users/wenzhengfeng/code/go/lucky_project/weights`
+    - 百度网盘: `/project/luckyProject/weights`
+    - 其他本地: `/project/luckyProject/weights`
+  - 当目标为 `baidu_netdisk` 时，后端会先写入后端固定目录，再上传到百度网盘固定目录。
 
 示例：
 ```bash
 curl -X POST "http://localhost:8080/v1/models/upload" \
   -F "file=@/path/to/model.pt" \
-  -F "subdir=demo" \
-  -F "storage_server=nas-01" \
+  -F "artifact_name=yolov7_HRW_4.2k" \
+  -F "storage_target=baidu_netdisk" \
   -F "upload_to_baidu=true"
+```
+
+### 3.5 扩展模型存储服务字段
+- 查询接口: `GET /models/{id}/storage-server`
+- 更新接口: `PATCH /models/{id}/storage-server`
+- 说明:
+  - `storage_server` 字段支持按“数组语义”管理，服务端兼容旧单值。
+  - `PATCH` 请求体支持：
+    - `action`: `set`(默认) / `add` / `remove`
+    - `storage_server`: 单个值（可选）
+    - `storage_servers`: 多个值数组（可选）
+- 返回:
+  - `id`
+  - `storage_server`: 兼容字段，返回数组第一个值（无值时为空字符串）
+  - `storage_servers`: 完整数组
+
+示例（追加一个存储服务）：
+```bash
+curl -X PATCH "http://localhost:8080/v1/models/1/storage-server" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "add",
+    "storage_servers": ["baidu"]
+  }'
 ```
 
 ---
@@ -119,6 +191,7 @@ curl -X POST "http://localhost:8080/v1/models/upload" \
   - `version`
   - `size_mb`
 - 可选字段:
+  - `file_name`（推荐，标准文件名，不含目录）
   - `description`
   - `config_path`
   - `num_classes`
@@ -126,6 +199,8 @@ curl -X POST "http://localhost:8080/v1/models/upload" \
   - `train_count`
   - `val_count`
   - `test_count`
+- 规则:
+  - 当 `file_name` 为空时，会自动从 `dataset_path` 提取 basename 回填（兼容旧客户端）。
 
 示例：
 ```json
@@ -169,26 +244,57 @@ curl -X POST "http://localhost:8080/v1/models/upload" \
 - Content-Type: `multipart/form-data`
 - 表单字段:
   - `file` (必填): 待上传数据集文件（例如 zip）
-  - `subdir` (可选): 上传子目录（相对目录）
-  - `storage_server` (可选): 上传目标服务器标识。默认 `backend`。当前版本无论传什么值，都会先落到后端本地存储。
+  - `artifact_name` (可选): 用户自定义文档名（用于生成标准文件名）
+  - `storage_target` (可选): 存储目标，支持 `backend|baidu_netdisk|other_local`，默认 `backend`
+  - `storage_server` (可选): 记录层的存储标识（兼容字段，不参与路径计算），默认 `backend`
   - `upload_to_baidu` (可选): 是否上传到百度网盘，布尔值，默认 `false`。支持 `true/false/1/0/t/f`。
+  - `subdir` (可选): 兼容字段，已废弃；固定目录模式下忽略。
 - 返回:
-  - `saved_path` 可直接用于 `dataset_path`
-  - `storage_server` 为最终记录的服务器标识（默认 `backend`）
-  - 文件命名规则：优先使用原始文件名（清洗非法字符后），同目录重名时自动追加 `_1`、`_2` 递增后缀。
+  - `file_name`: 标准文件名，格式 `artifact_name_哈希uuid.后缀`
+  - `storage_target`: 最终存储目标
+  - `resolved_path`: 本次后端实际写入路径
+  - `saved_path`: 兼容字段，同 `resolved_path`
+  - `paths`: 三类固定路径（`backend_path` / `baidu_path` / `other_local_path`）
+  - `storage_server`: 记录层存储标识（兼容）
   - `upload_to_baidu`: 本次请求是否要求上传百度网盘
   - `baidu_uploaded`: 百度网盘是否上传成功
   - `baidu_path`: 百度网盘目标路径（仅在 `baidu_uploaded=true` 时有值）
-  - 百度网盘数据集固定目录常量：`/project/luckyProject/datasets`
-  - 当 `upload_to_baidu=true` 或 `storage_server=baidu` 时，后端会先将文件落盘到本地目录 `/Users/wenzhengfeng/code/go/lucky_project/datasets`（可拼接 `subdir`），再调用百度网盘上传。
+  - 固定目录:
+    - 后端: `/Users/wenzhengfeng/code/go/lucky_project/datasets`
+    - 百度网盘: `/project/luckyProject/datasets`
+    - 其他本地: `/project/luckyProject/datasets`
+  - 当目标为 `baidu_netdisk` 时，后端会先写入后端固定目录，再上传到百度网盘固定目录。
 
 示例：
 ```bash
 curl -X POST "http://localhost:8080/v1/datasets/upload" \
   -F "file=@/path/to/dataset.zip" \
-  -F "subdir=demo" \
-  -F "storage_server=nas-01" \
-  -F "upload_to_baidu=true"
+  -F "artifact_name=traffic_dataset" \
+  -F "storage_target=backend"
+```
+
+### 4.4 扩展数据集存储服务字段
+- 查询接口: `GET /datasets/{id}/storage-server`
+- 更新接口: `PATCH /datasets/{id}/storage-server`
+- 说明:
+  - `storage_server` 字段支持按“数组语义”管理，服务端兼容旧单值。
+  - `PATCH` 请求体支持：
+    - `action`: `set`(默认) / `add` / `remove`
+    - `storage_server`: 单个值（可选）
+    - `storage_servers`: 多个值数组（可选）
+- 返回:
+  - `id`
+  - `storage_server`: 兼容字段，返回数组第一个值（无值时为空字符串）
+  - `storage_servers`: 完整数组
+
+示例（替换为多个存储服务）：
+```bash
+curl -X PATCH "http://localhost:8080/v1/datasets/1/storage-server" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "set",
+    "storage_servers": ["nas-01", "baidu"]
+  }'
 ```
 
 ---
@@ -226,7 +332,54 @@ curl -X POST "http://localhost:8080/v1/datasets/upload" \
 
 ---
 
-## 6. 响应格式
+## 6. 百度网盘下载接口
+
+### 6.1 下载网盘文件到本地
+- 接口: `POST /baidu/download`
+- Content-Type: `application/json`
+- 请求体:
+  - `remote_path` (可选): 百度网盘文件路径（例如 `/project/luckyProject/weights/yolo.pt`）
+  - `category` (可选): 下载目标目录类别，支持 `weights|models|datasets|dataset`，默认 `weights`
+  - `storage_target` (可选): 记录驱动模式下的源存储目标，当前要求 `baidu_netdisk`
+  - `file_name` (可选): 本地保存文件名；不传则使用 `remote_path` 的文件名
+  - `model_id` (可选): 下载成功后要同步的模型 ID（二选一：`model_id` 或 `model_name`）
+  - `model_name` (可选): 下载成功后按名称同步模型记录
+  - `dataset_id` (可选): 下载成功后要同步的数据集 ID（二选一：`dataset_id` 或 `dataset_name`）
+  - `dataset_name` (可选): 下载成功后按名称同步数据集记录
+  - `local_storage_server` (可选): 同步到记录时追加的本地存储标识，默认 `backend`
+- 记录驱动模式:
+  - 当 `remote_path` 为空时，必须提供 `model_id` 或 `dataset_id`，并传 `storage_target=baidu_netdisk`
+  - 服务端会用记录中的文件名字段自动拼接远端路径：
+    - 模型: `/project/luckyProject/weights/{weight_name}`
+    - 数据集: `/project/luckyProject/datasets/{file_name}`
+- 返回:
+  - `message`: `download success`
+  - `remote_path`: 网盘源路径
+  - `local_path`: 本地落盘路径
+  - `file_name`: 本地文件名
+  - `category`: 实际目标类别（`weights` 或 `datasets`）
+  - `size`: 下载文件大小（字节）
+  - `record_synced`: 是否已自动同步 `storage_server` 到记录
+  - 当 `record_synced=true` 时额外返回:
+    - `record_type`: `model` 或 `dataset`
+    - `record_id`: 记录 ID
+    - `storage_server`: 同步后数组首元素（兼容字段）
+    - `storage_servers`: 同步后完整数组
+
+示例：
+```bash
+curl -X POST "http://localhost:8080/v1/baidu/download" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_id": 65,
+    "storage_target": "baidu_netdisk",
+    "local_storage_server": "backend"
+  }'
+```
+
+---
+
+## 7. 响应格式
 
 错误响应：
 ```json

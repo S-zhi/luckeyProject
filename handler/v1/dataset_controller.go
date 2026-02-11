@@ -2,7 +2,6 @@ package v1
 
 import (
 	"errors"
-	"lucky_project/config"
 	entity2 "lucky_project/entity"
 	"lucky_project/service"
 	"net/http"
@@ -24,24 +23,17 @@ func NewDatasetController() *DatasetController {
 
 // CreateDataset handles POST /v1/datasets
 func (c *DatasetController) CreateDataset(ctx *gin.Context) {
-	config.AppLogger.Info("CreateDataset started")
-
 	var dataset entity2.Dataset
 	if err := ctx.ShouldBindJSON(&dataset); err != nil {
-		config.AppLogger.Error("Failed to bind JSON: %v", err)
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	config.AppLogger.Info("Received dataset: %+v", dataset)
-
 	if err := c.datasetService.CreateDataset(ctx.Request.Context(), &dataset); err != nil {
-		config.AppLogger.Error("Failed to create dataset: %v", err)
 		writeHTTPError(ctx, err)
 		return
 	}
 
-	config.AppLogger.Info("Dataset created successfully")
 	ctx.JSON(http.StatusCreated, dataset)
 }
 
@@ -62,6 +54,47 @@ func (c *DatasetController) GetAllDatasets(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, result)
 }
 
+// GetDatasetStorageServers handles GET /v1/datasets/:id/storage-server
+func (c *DatasetController) GetDatasetStorageServers(ctx *gin.Context) {
+	id, err := parseUintPathParam(ctx, "id")
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	servers, err := c.datasetService.GetStorageServersByID(ctx.Request.Context(), id)
+	if err != nil {
+		writeHTTPError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, buildStorageServerResponse(id, servers))
+}
+
+// UpdateDatasetStorageServers handles PATCH /v1/datasets/:id/storage-server
+func (c *DatasetController) UpdateDatasetStorageServers(ctx *gin.Context) {
+	id, err := parseUintPathParam(ctx, "id")
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var payload storageServerUpdatePayload
+	if err := ctx.ShouldBindJSON(&payload); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	action, servers := normalizeStorageServerPayload(payload)
+	updated, err := c.datasetService.UpdateStorageServersByID(ctx.Request.Context(), id, action, servers)
+	if err != nil {
+		writeHTTPError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, buildStorageServerResponse(id, updated))
+}
+
 // UploadDatasetFile handles POST /v1/datasets/upload
 func (c *DatasetController) UploadDatasetFile(ctx *gin.Context) {
 	file, err := ctx.FormFile("file")
@@ -71,6 +104,9 @@ func (c *DatasetController) UploadDatasetFile(ctx *gin.Context) {
 	}
 
 	subdir := ctx.PostForm("subdir")
+	_ = subdir // deprecated: fixed root strategy no longer uses subdir for path resolution.
+	artifactName := ctx.PostForm("artifact_name")
+	storageTarget := ctx.PostForm("storage_target")
 	storageServer := ctx.PostForm("storage_server")
 	uploadToBaidu, err := parseOptionalBoolForm(ctx, "upload_to_baidu", false)
 	if err != nil {
@@ -78,10 +114,12 @@ func (c *DatasetController) UploadDatasetFile(ctx *gin.Context) {
 		return
 	}
 
-	result, err := c.uploadService.SaveDatasetFile(file, subdir, storageServer, uploadToBaidu)
+	result, err := c.uploadService.SaveDatasetFile(file, artifactName, storageTarget, storageServer, uploadToBaidu)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrInvalidUploadFile), errors.Is(err, service.ErrInvalidUploadSubdir):
+		case errors.Is(err, service.ErrInvalidUploadFile),
+			errors.Is(err, service.ErrInvalidUploadSubdir),
+			errors.Is(err, service.ErrInvalidStorageTarget):
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		default:
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -92,9 +130,12 @@ func (c *DatasetController) UploadDatasetFile(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, gin.H{
 		"message":         "upload success",
 		"file_name":       result.FileName,
+		"resolved_path":   result.ResolvedPath,
 		"saved_path":      result.SavedPath,
+		"paths":           result.Paths,
 		"size":            result.Size,
 		"storage_server":  result.StorageServer,
+		"storage_target":  result.StorageTarget,
 		"upload_to_baidu": result.UploadToBaidu,
 		"baidu_uploaded":  result.BaiduUploaded,
 		"baidu_path":      result.BaiduPath,

@@ -13,6 +13,7 @@ type Dataset struct {
 	TaskType      string          `gorm:"column:task_type" json:"task_type"`
 	DatasetFormat string          `gorm:"column:dataset_format" json:"dataset_format"`
 	DatasetPath   string          `gorm:"column:dataset_path" json:"dataset_path"`
+	FileName      string          `gorm:"column:file_name" json:"file_name"`
 	ConfigPath    *string         `gorm:"column:config_path" json:"config_path"`
 	Version       string          `gorm:"column:version" json:"version"`
 	NumClasses    *uint           `gorm:"column:num_classes" json:"num_classes"`

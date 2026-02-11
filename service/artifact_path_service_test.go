@@ -1,0 +1,34 @@
+package service
+
+import (
+	"regexp"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestArtifactPathServiceBuildPath(t *testing.T) {
+	svc := NewArtifactPathService()
+
+	backendPath, err := svc.BuildPath(ArtifactCategoryWeights, StorageTargetBackend, "demo.pt")
+	assert.NoError(t, err)
+	assert.Equal(t, "/Users/wenzhengfeng/code/go/lucky_project/weights/demo.pt", backendPath)
+
+	baiduPath, err := svc.BuildPath(ArtifactCategoryDatasets, StorageTargetBaiduNetdisk, "demo.zip")
+	assert.NoError(t, err)
+	assert.Equal(t, "/project/luckyProject/datasets/demo.zip", baiduPath)
+
+	otherPath, err := svc.BuildPath(ArtifactCategoryWeights, StorageTargetOtherLocal, "w.pt")
+	assert.NoError(t, err)
+	assert.Equal(t, "/project/luckyProject/weights/w.pt", otherPath)
+}
+
+func TestArtifactPathServiceGenerateStoredFileName(t *testing.T) {
+	svc := NewArtifactPathService()
+
+	name, err := svc.GenerateStoredFileName("yolov7_HRW_4.2k", "origin.pt")
+	assert.NoError(t, err)
+
+	pattern := regexp.MustCompile(`^yolov7_HRW_4\.2k_[a-f0-9]{12}\.pt$`)
+	assert.True(t, pattern.MatchString(name), name)
+}
