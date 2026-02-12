@@ -2,19 +2,24 @@ package v1_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"lucky_project/config"
 	entity2 "lucky_project/entity"
 	"lucky_project/service"
+	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 )
 
 func TestModelAPI(t *testing.T) {
@@ -229,7 +234,7 @@ func TestModelAPI(t *testing.T) {
 
 		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
 			"artifact_name":  "test_model",
-			"storage_server": "nas-01",
+			"storage_server": "backend",
 		})
 		assert.Equal(t, http.StatusCreated, w.Code)
 
@@ -240,12 +245,12 @@ func TestModelAPI(t *testing.T) {
 		savedPath, ok := resp["saved_path"].(string)
 		assert.True(t, ok)
 		assert.NotEmpty(t, savedPath)
-		assert.Equal(t, "nas-01", resp["storage_server"])
+		assert.Equal(t, "backend", resp["storage_server"])
 		assert.Equal(t, "backend", resp["storage_target"])
 		assert.Equal(t, false, resp["upload_to_baidu"])
 		assert.Equal(t, false, resp["baidu_uploaded"])
 		fileName, _ := resp["file_name"].(string)
-		assert.True(t, regexp.MustCompile(`^test_model_[a-f0-9]{12}\.pt$`).MatchString(fileName), fileName)
+		assert.Equal(t, "test_model.pt", fileName)
 		_, err = os.Stat(savedPath)
 		assert.NoError(t, err)
 
@@ -313,9 +318,9 @@ func TestModelAPI(t *testing.T) {
 		assert.True(t, ok2)
 		fileName1, _ := resp1["file_name"].(string)
 		fileName2, _ := resp2["file_name"].(string)
-		assert.True(t, regexp.MustCompile(`^duplicate_model_[a-f0-9]{12}\.pt$`).MatchString(fileName1), fileName1)
-		assert.True(t, regexp.MustCompile(`^duplicate_model_[a-f0-9]{12}\.pt$`).MatchString(fileName2), fileName2)
-		assert.NotEqual(t, fileName1, fileName2)
+		assert.Equal(t, "duplicate_model.pt", fileName1)
+		assert.Equal(t, "duplicate_model.pt", fileName2)
+		assert.Equal(t, savedPath1, savedPath2)
 
 		t.Cleanup(func() {
 			_ = os.Remove(savedPath1)
@@ -335,6 +340,151 @@ func TestModelAPI(t *testing.T) {
 		})
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 		assert.Contains(t, w.Body.String(), "upload_to_baidu must be a boolean")
+	})
+
+	t.Run("Upload Model File Core Server Redis Error", func(t *testing.T) {
+		_ = config.CloseRedis()
+
+		tmpDir := t.TempDir()
+		fileName := fmt.Sprintf("core_upload_%d.onnx", time.Now().UnixNano())
+		filePath := filepath.Join(tmpDir, fileName)
+		err := os.WriteFile(filePath, []byte("mock model content"), 0o644)
+		assert.NoError(t, err)
+
+		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
+			"core_server_key": "rtx3090",
+		})
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Contains(t, w.Body.String(), "redis client is not initialized")
+	})
+
+	t.Run("Upload Model File Core Server Name Alias Redis Error", func(t *testing.T) {
+		_ = config.CloseRedis()
+
+		tmpDir := t.TempDir()
+		fileName := fmt.Sprintf("core_upload_alias_%d.onnx", time.Now().UnixNano())
+		filePath := filepath.Join(tmpDir, fileName)
+		err := os.WriteFile(filePath, []byte("mock model content"), 0o644)
+		assert.NoError(t, err)
+
+		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
+			"core_server_name": "rtx3090",
+		})
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Contains(t, w.Body.String(), "redis client is not initialized")
+	})
+
+	t.Run("Upload Model File Auto Core Server By Storage Server Redis Error", func(t *testing.T) {
+		_ = config.CloseRedis()
+
+		tmpDir := t.TempDir()
+		fileName := fmt.Sprintf("core_upload_auto_%d.onnx", time.Now().UnixNano())
+		filePath := filepath.Join(tmpDir, fileName)
+		err := os.WriteFile(filePath, []byte("mock model content"), 0o644)
+		assert.NoError(t, err)
+
+		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
+			"storage_server": "rtx3090",
+		})
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Contains(t, w.Body.String(), "redis client is not initialized")
+	})
+
+	t.Run("Upload Model File Sync MySQL Weight Size", func(t *testing.T) {
+		algorithmID := "upload_sync_algo"
+		weightName := fmt.Sprintf("sync_size_%d.onnx", time.Now().UnixNano())
+		model := entity2.Model{
+			Name:          fmt.Sprintf("SyncSizeModel_%d", time.Now().UnixNano()),
+			Version:       1.00,
+			BaseModelID:   0,
+			AlgorithmID:   &algorithmID,
+			WeightName:    weightName,
+			StorageServer: "backend",
+			WeightSizeMB:  0,
+			TaskType:      "detect",
+		}
+		createBody, _ := json.Marshal(model)
+		createResp := performRequest(testRouter, "POST", "/v1/models", bytes.NewBuffer(createBody))
+		assert.Equal(t, http.StatusCreated, createResp.Code)
+
+		var created entity2.Model
+		err := json.Unmarshal(createResp.Body.Bytes(), &created)
+		assert.NoError(t, err)
+		assert.NotZero(t, created.ID)
+
+		tmpDir := t.TempDir()
+		srcPath := filepath.Join(tmpDir, weightName)
+		content := bytes.Repeat([]byte("a"), 2*1024*1024+500)
+		err = os.WriteFile(srcPath, content, 0o644)
+		assert.NoError(t, err)
+
+		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", srcPath, map[string]string{})
+		assert.Equal(t, http.StatusCreated, w.Code)
+
+		var resp map[string]interface{}
+		err = json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		assert.Equal(t, weightName, resp["file_name"])
+		assert.Equal(t, true, resp["mysql_updated"])
+
+		modelService := service.NewModelService()
+		updated, err := modelService.GetByID(context.Background(), created.ID)
+		assert.NoError(t, err)
+		expectedMB := math.Round((float64(len(content))/(1024*1024))*1000) / 1000
+		assert.InDelta(t, expectedMB, updated.WeightSizeMB, 0.0001)
+
+		savedPath, _ := resp["saved_path"].(string)
+		t.Cleanup(func() {
+			if strings.TrimSpace(savedPath) != "" {
+				_ = os.Remove(savedPath)
+			}
+		})
+	})
+
+	t.Run("Delete Model By FileName", func(t *testing.T) {
+		algorithmID := "delete_file_algo"
+		weightName := fmt.Sprintf("delete_by_name_%d.pt", time.Now().UnixNano())
+		model := entity2.Model{
+			Name:          fmt.Sprintf("DeleteByNameModel_%d", time.Now().UnixNano()),
+			Version:       1.00,
+			BaseModelID:   0,
+			AlgorithmID:   &algorithmID,
+			WeightName:    weightName,
+			StorageServer: "backend",
+			WeightSizeMB:  1.23,
+			TaskType:      "detect",
+		}
+		createBody, _ := json.Marshal(model)
+		createResp := performRequest(testRouter, "POST", "/v1/models", bytes.NewBuffer(createBody))
+		assert.Equal(t, http.StatusCreated, createResp.Code)
+
+		var created entity2.Model
+		err := json.Unmarshal(createResp.Body.Bytes(), &created)
+		assert.NoError(t, err)
+		assert.NotZero(t, created.ID)
+
+		localPath := filepath.Join(service.DefaultBackendWeightsRoot, weightName)
+		err = os.MkdirAll(filepath.Dir(localPath), 0o755)
+		assert.NoError(t, err)
+		err = os.WriteFile(localPath, []byte("to-delete"), 0o644)
+		assert.NoError(t, err)
+
+		deleteURL := "/v1/models/by-filename?file_name=" + url.QueryEscape(weightName)
+		w := performRequest(testRouter, http.MethodDelete, deleteURL, nil)
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var resp map[string]interface{}
+		err = json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		assert.Equal(t, weightName, resp["file_name"])
+		assert.True(t, resp["deleted_records"].(float64) >= 1)
+
+		_, statErr := os.Stat(localPath)
+		assert.True(t, os.IsNotExist(statErr))
+
+		modelService := service.NewModelService()
+		_, err = modelService.GetByID(context.Background(), created.ID)
+		assert.True(t, errors.Is(err, gorm.ErrRecordNotFound))
 	})
 }
 

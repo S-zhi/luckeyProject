@@ -15,6 +15,7 @@ func SetupRouter() *gin.Engine {
 	datasetController := v2.NewDatasetController()
 	trainingController := v2.NewTrainingResultController()
 	baiduController := v2.NewBaiduController()
+	coreServerController := v2.NewCoreServerController()
 
 	r := gin.New()
 	r.MaxMultipartMemory = 256 << 20 // 256MB
@@ -54,6 +55,7 @@ func SetupRouter() *gin.Engine {
 			models.GET("/:id/storage-server", modelController.GetModelStorageServers)
 			models.PATCH("/:id/storage-server", modelController.UpdateModelStorageServers)
 			models.POST("/upload", modelController.UploadModelFile)
+			models.DELETE("/by-filename", modelController.DeleteModelByFileName)
 		}
 
 		// Dataset routes
@@ -61,9 +63,12 @@ func SetupRouter() *gin.Engine {
 		{
 			datasets.POST("", datasetController.CreateDataset)
 			datasets.GET("", datasetController.GetAllDatasets)
+			datasets.GET("/:id/download", datasetController.DownloadDatasetFile)
+			datasets.PATCH("/:id", datasetController.UpdateDatasetMetadata)
 			datasets.GET("/:id/storage-server", datasetController.GetDatasetStorageServers)
 			datasets.PATCH("/:id/storage-server", datasetController.UpdateDatasetStorageServers)
 			datasets.POST("/upload", datasetController.UploadDatasetFile)
+			datasets.DELETE("/by-filename", datasetController.DeleteDatasetByFileName)
 		}
 
 		// Training Result routes
@@ -77,6 +82,12 @@ func SetupRouter() *gin.Engine {
 		baidu := v1Group.Group("/baidu")
 		{
 			baidu.POST("/download", baiduController.DownloadFileToLocal)
+		}
+
+		// Core server routes
+		coreServers := v1Group.Group("/core-servers")
+		{
+			coreServers.GET("", coreServerController.ListCoreServers)
 		}
 	}
 

@@ -1,6 +1,11 @@
 /internal/controller/v1/logs/app.log
 /.idea/dataSources.xml
-/,idea/*
+/.idea/*
 /.idea/vcs.xml
 /.idea/modules.xml
 /handler/v1/logs/app.log
+/weights/*
+/datasets/*
+/logs/*
+/docs/*
+
