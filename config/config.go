@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Server   ServerConfig   `yaml:"server"`
 	DB       DBConfig       `yaml:"db"`
+	Redis    RedisConfig    `yaml:"redis"`
 	BaiduPan BaiduPanConfig `yaml:"baidu_pan"`
 	Log      LogConfig      `yaml:"log"`
 }
@@ -28,6 +29,13 @@ type DBConfig struct {
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
 	DBName   string `yaml:"dbname"`
+}
+
+type RedisConfig struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
 }
 
 type BaiduPanConfig struct {

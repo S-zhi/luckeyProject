@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"lucky_project/config"
 	entity2 "lucky_project/entity"
 	"lucky_project/service"
 	"math"
@@ -339,6 +340,38 @@ func TestModelAPI(t *testing.T) {
 		})
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 		assert.Contains(t, w.Body.String(), "upload_to_baidu must be a boolean")
+	})
+
+	t.Run("Upload Model File Core Server Redis Error", func(t *testing.T) {
+		_ = config.CloseRedis()
+
+		tmpDir := t.TempDir()
+		fileName := fmt.Sprintf("core_upload_%d.onnx", time.Now().UnixNano())
+		filePath := filepath.Join(tmpDir, fileName)
+		err := os.WriteFile(filePath, []byte("mock model content"), 0o644)
+		assert.NoError(t, err)
+
+		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
+			"core_server_key": "rtx3090",
+		})
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Contains(t, w.Body.String(), "redis client is not initialized")
+	})
+
+	t.Run("Upload Model File Core Server Name Alias Redis Error", func(t *testing.T) {
+		_ = config.CloseRedis()
+
+		tmpDir := t.TempDir()
+		fileName := fmt.Sprintf("core_upload_alias_%d.onnx", time.Now().UnixNano())
+		filePath := filepath.Join(tmpDir, fileName)
+		err := os.WriteFile(filePath, []byte("mock model content"), 0o644)
+		assert.NoError(t, err)
+
+		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
+			"core_server_name": "rtx3090",
+		})
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Contains(t, w.Body.String(), "redis client is not initialized")
 	})
 
 	t.Run("Upload Model File Sync MySQL Weight Size", func(t *testing.T) {
