@@ -18,6 +18,7 @@ type ModelController struct {
 	modelService    *service.ModelService
 	uploadService   *service.UploadService
 	downloadService *service.BaiduDownloadService
+	sshUploadSvc    *service.SSHArtifactTransferService
 }
 
 func NewModelController() *ModelController {
@@ -25,6 +26,7 @@ func NewModelController() *ModelController {
 		modelService:    service.NewModelService(),
 		uploadService:   service.NewUploadService(),
 		downloadService: service.NewBaiduDownloadService(),
+		sshUploadSvc:    service.NewSSHArtifactTransferService(),
 	}
 }
 
@@ -115,6 +117,10 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 	artifactName := ctx.PostForm("artifact_name")
 	storageTarget := ctx.PostForm("storage_target")
 	storageServer := ctx.PostForm("storage_server")
+	coreServerKey := pickFirstNonEmpty(
+		ctx.PostForm("core_server_key"),
+		ctx.PostForm("core_server_name"),
+	)
 	uploadToBaidu, err := parseOptionalBoolForm(ctx, "upload_to_baidu", false)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -134,13 +140,36 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 		return
 	}
 
+	var coreTransfer *service.SSHTransferResult
+	var coreServer *service.CoreServer
+	if coreServerKey != "" {
+		server, transfer, err := c.uploadModelToCoreServer(ctx, coreServerKey, result.FileName, result.ResolvedPath)
+		if err != nil {
+			switch {
+			case errors.Is(err, service.ErrCoreServerKeyRequired),
+				errors.Is(err, service.ErrCoreServerNotFound),
+				errors.Is(err, service.ErrSSHServerPortInvalid),
+				errors.Is(err, service.ErrSSHFilePathRequired),
+				errors.Is(err, service.ErrInvalidStorageTarget):
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			case errors.Is(err, service.ErrRedisNotInitialized):
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			default:
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
+			return
+		}
+		coreServer = &server
+		coreTransfer = &transfer
+	}
+
 	affectedRows, weightSizeMB, err := c.modelService.SyncWeightSizeByFileName(ctx.Request.Context(), result.FileName, result.Size)
 	if err != nil {
 		writeHTTPError(ctx, err)
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
+	resp := gin.H{
 		"message":         "upload success",
 		"file_name":       result.FileName,
 		"resolved_path":   result.ResolvedPath,
@@ -155,7 +184,65 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 		"weight_size_mb":  weightSizeMB,
 		"mysql_updated":   affectedRows > 0,
 		"mysql_affected":  affectedRows,
-	})
+	}
+
+	if coreTransfer != nil && coreServer != nil {
+		resp["core_uploaded"] = true
+		resp["core_server_key"] = coreServer.Key
+		resp["core_server_ip"] = coreServer.IP
+		resp["core_server_port"] = coreServer.Port
+		resp["core_remote_path"] = coreTransfer.TargetPath
+	} else {
+		resp["core_uploaded"] = false
+	}
+
+	ctx.JSON(http.StatusCreated, resp)
+}
+
+func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKey, fileName, localPath string) (service.CoreServer, service.SSHTransferResult, error) {
+	if c.sshUploadSvc == nil {
+		return service.CoreServer{}, service.SSHTransferResult{}, service.ErrSSHClientFactoryNil
+	}
+
+	coreServer, err := service.GetCoreServerByKey(ctx.Request.Context(), coreServerKey)
+	if err != nil {
+		return service.CoreServer{}, service.SSHTransferResult{}, err
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return service.CoreServer{}, service.SSHTransferResult{}, err
+	}
+	privateKeyPath := filepath.Join(homeDir, ".ssh", "id_rsa")
+	if keyPath := strings.TrimSpace(ctx.PostForm("ssh_private_key_path")); keyPath != "" {
+		privateKeyPath = keyPath
+	}
+	sshUser := strings.TrimSpace(ctx.PostForm("ssh_user"))
+	if sshUser == "" {
+		sshUser = service.DefaultSSHServerUser
+	}
+
+	if err := c.sshUploadSvc.SetServerConfig(coreServer.Key, service.SSHServerConfig{
+		Name:           coreServer.Key,
+		IP:             coreServer.IP,
+		Port:           coreServer.Port,
+		User:           sshUser,
+		PrivateKeyPath: privateKeyPath,
+	}); err != nil {
+		return service.CoreServer{}, service.SSHTransferResult{}, err
+	}
+
+	pathService := service.NewArtifactPathService()
+	remotePath, err := pathService.BuildPath(service.ArtifactCategoryWeights, service.StorageTargetOtherLocal, fileName)
+	if err != nil {
+		return service.CoreServer{}, service.SSHTransferResult{}, err
+	}
+
+	transfer, err := c.sshUploadSvc.UploadFileByPathWithPort(localPath, remotePath, coreServer.Key, coreServer.Port)
+	if err != nil {
+		return service.CoreServer{}, service.SSHTransferResult{}, err
+	}
+	return coreServer, transfer, nil
 }
 
 // DeleteModelByFileName handles DELETE /v1/models/by-filename?file_name=xxx
@@ -319,4 +406,14 @@ func containsBaiduStorage(servers []string) bool {
 		}
 	}
 	return false
+}
+
+func pickFirstNonEmpty(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }

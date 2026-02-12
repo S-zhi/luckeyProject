@@ -25,10 +25,15 @@ func main() {
 		log.Fatalf("Init database failed: %v", err)
 	}
 
-	// 3. Setup router
+	// 3. Initialize redis
+	if err := config.InitRedis(); err != nil {
+		log.Fatalf("Init redis failed: %v", err)
+	}
+
+	// 4. Setup router
 	r := router.SetupRouter()
 
-	// 4. Start server
+	// 5. Start server
 	port := config.AppConfig.Server.Port
 	if port == 0 {
 		port = 8080
