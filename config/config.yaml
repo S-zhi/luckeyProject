@@ -7,6 +7,11 @@ db:
   user: kara
   password: "@Wd3dad28dlvn396"
   dbname: luckydb
+redis:
+  host: 115.190.248.44
+  port: 6379
+  password: "password"
+  db: 13
 baidu_pan:
   access_token: "123.8ddd8010a2c14898b50dd162c843dd2f.YBzs9TPADNx7YXUWLIyBS8Ieba0zZ8mCwuhDlZ5.tOl86A"
   is_svip: true

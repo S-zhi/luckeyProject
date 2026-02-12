@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -54,8 +53,7 @@ func TestUploadServiceSaveModelFileBaiduFlow(t *testing.T) {
 	assert.Equal(t, StorageTargetBaiduNetdisk, result.StorageTarget)
 	assert.Equal(t, pathService.BaiduWeightsRoot, uploader.remoteDir)
 
-	pattern := regexp.MustCompile(`^yolov7_HRW_4\.2k_[a-f0-9]{12}\.pt$`)
-	assert.True(t, pattern.MatchString(result.FileName), result.FileName)
+	assert.Equal(t, "yolov7_HRW_4.2k.pt", result.FileName)
 	assert.Equal(t, filepath.ToSlash(filepath.Join(pathService.BaiduWeightsRoot, result.FileName)), result.BaiduPath)
 	assert.Equal(t, filepath.ToSlash(filepath.Join(pathService.BackendWeightsRoot, result.FileName)), result.ResolvedPath)
 	assert.Equal(t, result.ResolvedPath, filepath.ToSlash(uploader.localPath))
