@@ -63,9 +63,12 @@ func SetupRouter() *gin.Engine {
 		{
 			datasets.POST("", datasetController.CreateDataset)
 			datasets.GET("", datasetController.GetAllDatasets)
+			datasets.GET("/:id/download", datasetController.DownloadDatasetFile)
+			datasets.PATCH("/:id", datasetController.UpdateDatasetMetadata)
 			datasets.GET("/:id/storage-server", datasetController.GetDatasetStorageServers)
 			datasets.PATCH("/:id/storage-server", datasetController.UpdateDatasetStorageServers)
 			datasets.POST("/upload", datasetController.UploadDatasetFile)
+			datasets.DELETE("/by-filename", datasetController.DeleteDatasetByFileName)
 		}
 
 		// Training Result routes

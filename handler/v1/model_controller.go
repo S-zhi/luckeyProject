@@ -2,6 +2,7 @@ package v1
 
 import (
 	"errors"
+	"fmt"
 	"lucky_project/dao"
 	entity2 "lucky_project/entity"
 	"lucky_project/service"
@@ -82,6 +83,7 @@ func (c *ModelController) GetModelStorageServers(ctx *gin.Context) {
 
 // UpdateModelStorageServers handles PATCH /v1/models/:id/storage-server
 func (c *ModelController) UpdateModelStorageServers(ctx *gin.Context) {
+	logger := handlerLogger().With("controller", "ModelController", "method", "UpdateModelStorageServers")
 	id, err := parseUintPathParam(ctx, "id")
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -95,17 +97,30 @@ func (c *ModelController) UpdateModelStorageServers(ctx *gin.Context) {
 	}
 
 	action, servers := normalizeStorageServerPayload(payload)
+	logger.Info(
+		"update model storage server request",
+		"model_id", id,
+		"action", action,
+		"servers", servers,
+	)
 	updated, err := c.modelService.UpdateStorageServersByID(ctx.Request.Context(), id, action, servers)
 	if err != nil {
 		writeHTTPError(ctx, err)
 		return
 	}
 
+	logger.Info(
+		"update model storage server success (metadata only)",
+		"model_id", id,
+		"updated_servers", updated,
+		"note", "this endpoint does not upload files to remote server",
+	)
 	ctx.JSON(http.StatusOK, buildStorageServerResponse(id, updated))
 }
 
 // UploadModelFile handles POST /v1/models/upload
 func (c *ModelController) UploadModelFile(ctx *gin.Context) {
+	logger := handlerLogger().With("controller", "ModelController", "method", "UploadModelFile")
 	file, err := ctx.FormFile("file")
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
@@ -127,8 +142,28 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 		return
 	}
 
+	logger.Info(
+		"upload model request",
+		"original_file", file.Filename,
+		"artifact_name", artifactName,
+		"storage_target", storageTarget,
+		"storage_server", storageServer,
+		"upload_to_baidu", uploadToBaidu,
+		"core_server_key", coreServerKey,
+	)
+
+	if coreServerKey == "" && shouldAutoUploadToCoreByStorageServer(storageServer) {
+		coreServerKey = strings.TrimSpace(storageServer)
+		logger.Info(
+			"core upload key auto-selected from storage_server",
+			"storage_server", storageServer,
+			"core_server_key", coreServerKey,
+		)
+	}
+
 	result, err := c.uploadService.SaveModelFile(file, artifactName, storageTarget, storageServer, uploadToBaidu)
 	if err != nil {
+		logger.Error("save model file failed", "error", err)
 		switch {
 		case errors.Is(err, service.ErrInvalidUploadFile),
 			errors.Is(err, service.ErrInvalidUploadSubdir),
@@ -140,11 +175,25 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 		return
 	}
 
+	logger.Info(
+		"save model file success",
+		"file_name", result.FileName,
+		"resolved_path", result.ResolvedPath,
+		"saved_path", result.SavedPath,
+		"size", result.Size,
+		"storage_target", result.StorageTarget,
+		"storage_server", result.StorageServer,
+		"baidu_uploaded", result.BaiduUploaded,
+		"baidu_path", result.BaiduPath,
+	)
+
 	var coreTransfer *service.SSHTransferResult
 	var coreServer *service.CoreServer
 	if coreServerKey != "" {
+		logger.Info("core upload requested", "core_server_key", coreServerKey)
 		server, transfer, err := c.uploadModelToCoreServer(ctx, coreServerKey, result.FileName, result.ResolvedPath)
 		if err != nil {
+			logger.Error("core upload failed", "core_server_key", coreServerKey, "error", err)
 			switch {
 			case errors.Is(err, service.ErrCoreServerKeyRequired),
 				errors.Is(err, service.ErrCoreServerNotFound),
@@ -161,12 +210,37 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 		}
 		coreServer = &server
 		coreTransfer = &transfer
+		logger.Info(
+			"core upload success",
+			"core_server_key", server.Key,
+			"core_server_ip", server.IP,
+			"core_server_port", server.Port,
+			"remote_path", transfer.TargetPath,
+			"bytes", transfer.Bytes,
+		)
+	} else {
+		logger.Info("core upload skipped", "reason", "core_server_key is empty")
 	}
 
 	affectedRows, weightSizeMB, err := c.modelService.SyncWeightSizeByFileName(ctx.Request.Context(), result.FileName, result.Size)
 	if err != nil {
 		writeHTTPError(ctx, err)
 		return
+	}
+	if affectedRows == 0 {
+		logger.Info(
+			"sync model weight size skipped",
+			"weight_name", result.FileName,
+			"affected_rows", affectedRows,
+			"note", "no model record matched weight_name; this is expected if /v1/models is created after file upload",
+		)
+	} else {
+		logger.Info(
+			"sync model weight size success",
+			"weight_name", result.FileName,
+			"affected_rows", affectedRows,
+			"weight_size_mb", weightSizeMB,
+		)
 	}
 
 	resp := gin.H{
@@ -200,12 +274,20 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 }
 
 func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKey, fileName, localPath string) (service.CoreServer, service.SSHTransferResult, error) {
+	logger := handlerLogger().With("controller", "ModelController", "method", "uploadModelToCoreServer")
 	if c.sshUploadSvc == nil {
 		return service.CoreServer{}, service.SSHTransferResult{}, service.ErrSSHClientFactoryNil
 	}
 
+	logger.Info(
+		"resolve core server for upload",
+		"core_server_key", coreServerKey,
+		"file_name", fileName,
+		"local_path", localPath,
+	)
 	coreServer, err := service.GetCoreServerByKey(ctx.Request.Context(), coreServerKey)
 	if err != nil {
+		logger.Error("resolve core server failed", "core_server_key", coreServerKey, "error", err)
 		return service.CoreServer{}, service.SSHTransferResult{}, err
 	}
 
@@ -213,9 +295,13 @@ func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKe
 	if err != nil {
 		return service.CoreServer{}, service.SSHTransferResult{}, err
 	}
-	privateKeyPath := filepath.Join(homeDir, ".ssh", "id_rsa")
-	if keyPath := strings.TrimSpace(ctx.PostForm("ssh_private_key_path")); keyPath != "" {
-		privateKeyPath = keyPath
+	privateKeyPath := strings.TrimSpace(ctx.PostForm("ssh_private_key_path"))
+	if privateKeyPath == "" {
+		privateKeyPath, err = resolveDefaultSSHPrivateKeyPath(homeDir)
+		if err != nil {
+			logger.Error("resolve ssh private key path failed", "error", err)
+			return service.CoreServer{}, service.SSHTransferResult{}, err
+		}
 	}
 	sshUser := strings.TrimSpace(ctx.PostForm("ssh_user"))
 	if sshUser == "" {
@@ -229,19 +315,38 @@ func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKe
 		User:           sshUser,
 		PrivateKeyPath: privateKeyPath,
 	}); err != nil {
+		logger.Error("set ssh server config failed", "core_server_key", coreServer.Key, "error", err)
 		return service.CoreServer{}, service.SSHTransferResult{}, err
 	}
 
 	pathService := service.NewArtifactPathService()
 	remotePath, err := pathService.BuildPath(service.ArtifactCategoryWeights, service.StorageTargetOtherLocal, fileName)
 	if err != nil {
+		logger.Error("build remote path failed", "file_name", fileName, "error", err)
 		return service.CoreServer{}, service.SSHTransferResult{}, err
 	}
 
+	logger.Info(
+		"start ssh upload to core server",
+		"core_server_key", coreServer.Key,
+		"core_server_ip", coreServer.IP,
+		"core_server_port", coreServer.Port,
+		"ssh_user", sshUser,
+		"private_key_path", privateKeyPath,
+		"remote_path", remotePath,
+	)
 	transfer, err := c.sshUploadSvc.UploadFileByPathWithPort(localPath, remotePath, coreServer.Key, coreServer.Port)
 	if err != nil {
+		logger.Error("ssh upload failed", "core_server_key", coreServer.Key, "error", err)
 		return service.CoreServer{}, service.SSHTransferResult{}, err
 	}
+	logger.Info(
+		"ssh upload finished",
+		"core_server_key", coreServer.Key,
+		"remote_path", transfer.TargetPath,
+		"bytes", transfer.Bytes,
+		"cost", transfer.Cost.String(),
+	)
 	return coreServer, transfer, nil
 }
 
@@ -406,6 +511,46 @@ func containsBaiduStorage(servers []string) bool {
 		}
 	}
 	return false
+}
+
+func isLocalStorageServer(server string) bool {
+	switch strings.ToLower(strings.TrimSpace(server)) {
+	case "", service.StorageTargetBackend, "local", "localhost", "127.0.0.1", "::1":
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldAutoUploadToCoreByStorageServer(storageServer string) bool {
+	if isLocalStorageServer(storageServer) {
+		return false
+	}
+	if containsBaiduStorage([]string{storageServer}) {
+		return false
+	}
+	return true
+}
+
+func resolveDefaultSSHPrivateKeyPath(homeDir string) (string, error) {
+	sshDir := filepath.Join(homeDir, ".ssh")
+	candidates := []string{
+		filepath.Join(sshDir, "id_rsa"),
+		filepath.Join(sshDir, "id_ed25519"),
+	}
+
+	for _, path := range candidates {
+		info, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+		if info.IsDir() {
+			continue
+		}
+		return path, nil
+	}
+
+	return "", fmt.Errorf("no usable ssh private key found under %s (tried id_rsa, id_ed25519)", sshDir)
 }
 
 func pickFirstNonEmpty(values ...string) string {

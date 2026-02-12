@@ -234,7 +234,7 @@ func TestModelAPI(t *testing.T) {
 
 		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
 			"artifact_name":  "test_model",
-			"storage_server": "nas-01",
+			"storage_server": "backend",
 		})
 		assert.Equal(t, http.StatusCreated, w.Code)
 
@@ -245,7 +245,7 @@ func TestModelAPI(t *testing.T) {
 		savedPath, ok := resp["saved_path"].(string)
 		assert.True(t, ok)
 		assert.NotEmpty(t, savedPath)
-		assert.Equal(t, "nas-01", resp["storage_server"])
+		assert.Equal(t, "backend", resp["storage_server"])
 		assert.Equal(t, "backend", resp["storage_target"])
 		assert.Equal(t, false, resp["upload_to_baidu"])
 		assert.Equal(t, false, resp["baidu_uploaded"])
@@ -369,6 +369,22 @@ func TestModelAPI(t *testing.T) {
 
 		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
 			"core_server_name": "rtx3090",
+		})
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+		assert.Contains(t, w.Body.String(), "redis client is not initialized")
+	})
+
+	t.Run("Upload Model File Auto Core Server By Storage Server Redis Error", func(t *testing.T) {
+		_ = config.CloseRedis()
+
+		tmpDir := t.TempDir()
+		fileName := fmt.Sprintf("core_upload_auto_%d.onnx", time.Now().UnixNano())
+		filePath := filepath.Join(tmpDir, fileName)
+		err := os.WriteFile(filePath, []byte("mock model content"), 0o644)
+		assert.NoError(t, err)
+
+		w := performMultipartRequest(t, testRouter, http.MethodPost, "/v1/models/upload", "file", filePath, map[string]string{
+			"storage_server": "rtx3090",
 		})
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
 		assert.Contains(t, w.Body.String(), "redis client is not initialized")

@@ -175,3 +175,26 @@
 [INFO] 2026/02/11 20:13:47 upload_file.go:119 - Successfully uploaded part 2
 [ERROR] 2026/02/11 20:13:47 upload_file.go:94 - Failed to close temporary file: close /var/folders/tb/zvxg4w317rdb5032dpbbp8280000gn/T/part-3366695752: file already closed
 [INFO] 2026/02/11 20:13:47 upload_file.go:146 - Successfully created file: /project/luckyProject/weights/yolo26n_v5.0_b83aea9edc69.onnx
+[INFO] 2026/02/12 13:35:43 日志系统初始化成功
+[INFO] 2026/02/12 13:35:43 upload_file.go:159 - 未实现普通会员的情况
+[INFO] 2026/02/12 13:35:43 upload_file.go:163 - 授权用户为普通用户时，单个分片大小固定为4MB，单文件总大小上限为4GB
+[INFO] 2026/02/12 13:35:43 upload_file.go:35 - File size: 9894681
+[INFO] 2026/02/12 13:35:45 upload_file.go:119 - Successfully uploaded part 0
+[ERROR] 2026/02/12 13:35:45 upload_file.go:94 - Failed to close temporary file: close /var/folders/tb/zvxg4w317rdb5032dpbbp8280000gn/T/part-733848464: file already closed
+[INFO] 2026/02/12 13:35:45 upload_file.go:119 - Successfully uploaded part 1
+[ERROR] 2026/02/12 13:35:45 upload_file.go:94 - Failed to close temporary file: close /var/folders/tb/zvxg4w317rdb5032dpbbp8280000gn/T/part-780549987: file already closed
+[INFO] 2026/02/12 13:35:46 upload_file.go:119 - Successfully uploaded part 2
+[ERROR] 2026/02/12 13:35:46 upload_file.go:94 - Failed to close temporary file: close /var/folders/tb/zvxg4w317rdb5032dpbbp8280000gn/T/part-1123844457: file already closed
+[INFO] 2026/02/12 13:35:46 upload_file.go:146 - Successfully created file: /project/luckyProject/weights/yolo26n_v17.2.onnx
+[INFO] 2026/02/12 13:39:51 config.go:62 - NewBasicConfig 创建成功: {123.8ddd8010a2c14898b50dd162c843dd2f.YBzs9TPADNx7YXUWLIyBS8Ieba0zZ8mCwuhDlZ5.tOl86A unknown true logs/baiduPanSDK.log}
+[INFO] 2026/02/12 13:39:51 日志系统初始化成功
+[INFO] 2026/02/12 13:39:51 upload_file.go:159 - 未实现普通会员的情况
+[INFO] 2026/02/12 13:39:51 upload_file.go:163 - 授权用户为普通用户时，单个分片大小固定为4MB，单文件总大小上限为4GB
+[INFO] 2026/02/12 13:39:51 upload_file.go:35 - File size: 9894681
+[INFO] 2026/02/12 13:39:52 upload_file.go:119 - Successfully uploaded part 0
+[ERROR] 2026/02/12 13:39:52 upload_file.go:94 - Failed to close temporary file: close /var/folders/tb/zvxg4w317rdb5032dpbbp8280000gn/T/part-2737757349: file already closed
+[INFO] 2026/02/12 13:39:52 upload_file.go:119 - Successfully uploaded part 1
+[ERROR] 2026/02/12 13:39:52 upload_file.go:94 - Failed to close temporary file: close /var/folders/tb/zvxg4w317rdb5032dpbbp8280000gn/T/part-1356847331: file already closed
+[INFO] 2026/02/12 13:39:53 upload_file.go:119 - Successfully uploaded part 2
+[ERROR] 2026/02/12 13:39:53 upload_file.go:94 - Failed to close temporary file: close /var/folders/tb/zvxg4w317rdb5032dpbbp8280000gn/T/part-1617014166: file already closed
+[INFO] 2026/02/12 13:39:53 upload_file.go:146 - Successfully created file: /project/luckyProject/weights/yolo26n_v16.2.onnx
