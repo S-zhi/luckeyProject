@@ -35,7 +35,7 @@ func buildLogger(logPath string) *slog.Logger {
 
 	// 1) 确保目录存在
 	if err := ensureLogDir(logPath); err != nil {
-		fmt.Printf("failed to create log directory: %v\n", err)
+		fmt.Printf("创建日志目录失败：%v\n", err)
 		return slog.Default()
 	}
 

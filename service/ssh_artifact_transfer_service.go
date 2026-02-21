@@ -200,13 +200,13 @@ func (s *SSHArtifactTransferService) SetServerConfig(serverName string, cfg SSHS
 
 	name := strings.TrimSpace(serverName)
 	if name == "" {
-		logger.Warn("set server config failed: server name is empty")
+		logger.Warn("设置服务器配置失败：服务器名称为空")
 		return ErrSSHServerNameRequired
 	}
 
 	normalized, err := normalizeServerConfig(cfg)
 	if err != nil {
-		logger.Error("set server config failed: invalid config", "server_name", name, "error", err)
+		logger.Error("设置服务器配置失败：配置无效", "server_name", name, "error", err)
 		return err
 	}
 	normalized.Name = name
@@ -216,7 +216,7 @@ func (s *SSHArtifactTransferService) SetServerConfig(serverName string, cfg SSHS
 	}
 	s.serverConfigs[name] = normalized
 	logger.Info(
-		"set server config success",
+		"设置服务器配置成功",
 		"server_name", name,
 		"server_ip", normalized.IP,
 		"port", normalized.Port,
@@ -250,7 +250,7 @@ func (s *SSHArtifactTransferService) UploadFileByPathWithPort(localPath, remoteP
 	start := time.Now()
 
 	logger.Info(
-		"upload begin",
+		"上传开始",
 		"server_name", strings.TrimSpace(serverName),
 		"port", port,
 		"local_path", strings.TrimSpace(localPath),
@@ -258,60 +258,60 @@ func (s *SSHArtifactTransferService) UploadFileByPathWithPort(localPath, remoteP
 	)
 
 	if strings.TrimSpace(localPath) == "" || strings.TrimSpace(remotePath) == "" {
-		logger.Warn("upload failed: local path or remote path is empty")
+		logger.Warn("上传失败：本地路径或远程路径为空")
 		return SSHTransferResult{}, ErrSSHFilePathRequired
 	}
 	if s.PathService == nil {
-		logger.Warn("upload failed: artifact path service is nil")
+		logger.Warn("上传失败：构件路径服务为空")
 		return SSHTransferResult{}, ErrArtifactPathServiceNil
 	}
 	if s.clientFactory == nil {
-		logger.Warn("upload failed: ssh client factory is nil")
+		logger.Warn("上传失败：SSH 客户端工厂为空")
 		return SSHTransferResult{}, ErrSSHClientFactoryNil
 	}
 
 	normalizedLocal := filepath.Clean(strings.TrimSpace(localPath))
 	normalizedRemote, err := normalizeRemoteFilePath(remotePath)
 	if err != nil {
-		logger.Warn("upload failed: invalid remote path", "remote_path", remotePath, "error", err)
+		logger.Warn("上传失败：远程路径无效", "remote_path", remotePath, "error", err)
 		return SSHTransferResult{}, err
 	}
 
 	info, err := os.Stat(normalizedLocal)
 	if err != nil {
 		if os.IsNotExist(err) {
-			logger.Warn("upload failed: local source file not found", "local_path", normalizedLocal)
+			logger.Warn("上传失败：本地源文件不存在", "local_path", normalizedLocal)
 			return SSHTransferResult{}, ErrLocalSourceFileNotFound
 		}
-		logger.Error("upload failed: stat local source file failed", "local_path", normalizedLocal, "error", err)
+		logger.Error("上传失败：获取本地源文件信息失败", "local_path", normalizedLocal, "error", err)
 		return SSHTransferResult{}, fmt.Errorf("stat local source file failed: %w", err)
 	}
 	if !info.Mode().IsRegular() {
-		logger.Warn("upload failed: local source path is not regular file", "local_path", normalizedLocal, "mode", info.Mode().String())
+		logger.Warn("上传失败：本地源路径不是普通文件", "local_path", normalizedLocal, "mode", info.Mode().String())
 		return SSHTransferResult{}, ErrLocalSourcePathNotRegularFile
 	}
 
 	server, err := s.resolveServerWithPort(serverName, port)
 	if err != nil {
-		logger.Error("upload failed: resolve server failed", "server_name", serverName, "port", port, "error", err)
+		logger.Error("上传失败：解析服务器配置失败", "server_name", serverName, "port", port, "error", err)
 		return SSHTransferResult{}, err
 	}
 
 	client, err := s.clientFactory.New(server)
 	if err != nil {
-		logger.Error("upload failed: create ssh client failed", "server_name", server.Name, "server_ip", server.IP, "error", err)
+		logger.Error("上传失败：创建 SSH 客户端失败", "server_name", server.Name, "server_ip", server.IP, "error", err)
 		return SSHTransferResult{}, err
 	}
 	defer func() {
 		if closeErr := client.Close(); closeErr != nil {
-			logger.Error("upload close client failed", "server_name", server.Name, "error", closeErr)
+			logger.Error("上传后关闭客户端失败", "server_name", server.Name, "error", closeErr)
 		}
 	}()
 
 	written, err := client.UploadFile(normalizedLocal, normalizedRemote)
 	if err != nil {
 		logger.Error(
-			"upload failed",
+			"上传失败",
 			"server_name", server.Name,
 			"server_ip", server.IP,
 			"local_path", normalizedLocal,
@@ -332,7 +332,7 @@ func (s *SSHArtifactTransferService) UploadFileByPathWithPort(localPath, remoteP
 	}
 
 	logger.Info(
-		"upload success",
+		"上传成功",
 		"server_name", server.Name,
 		"server_ip", server.IP,
 		"port", server.Port,
@@ -368,7 +368,7 @@ func (s *SSHArtifactTransferService) DownloadFileByPathWithPort(remotePath, loca
 	start := time.Now()
 
 	logger.Info(
-		"download begin",
+		"下载开始",
 		"server_name", strings.TrimSpace(serverName),
 		"port", port,
 		"remote_path", strings.TrimSpace(remotePath),
@@ -376,56 +376,56 @@ func (s *SSHArtifactTransferService) DownloadFileByPathWithPort(remotePath, loca
 	)
 
 	if strings.TrimSpace(localPath) == "" || strings.TrimSpace(remotePath) == "" {
-		logger.Warn("download failed: local path or remote path is empty")
+		logger.Warn("下载失败：本地路径或远程路径为空")
 		return SSHTransferResult{}, ErrSSHFilePathRequired
 	}
 	if s.PathService == nil {
-		logger.Warn("download failed: artifact path service is nil")
+		logger.Warn("下载失败：构件路径服务为空")
 		return SSHTransferResult{}, ErrArtifactPathServiceNil
 	}
 	if s.clientFactory == nil {
-		logger.Warn("download failed: ssh client factory is nil")
+		logger.Warn("下载失败：SSH 客户端工厂为空")
 		return SSHTransferResult{}, ErrSSHClientFactoryNil
 	}
 
 	normalizedRemote, err := normalizeRemoteFilePath(remotePath)
 	if err != nil {
-		logger.Warn("download failed: invalid remote path", "remote_path", remotePath, "error", err)
+		logger.Warn("下载失败：远程路径无效", "remote_path", remotePath, "error", err)
 		return SSHTransferResult{}, err
 	}
 	normalizedLocal := filepath.Clean(strings.TrimSpace(localPath))
 
 	server, err := s.resolveServerWithPort(serverName, port)
 	if err != nil {
-		logger.Error("download failed: resolve server failed", "server_name", serverName, "port", port, "error", err)
+		logger.Error("下载失败：解析服务器配置失败", "server_name", serverName, "port", port, "error", err)
 		return SSHTransferResult{}, err
 	}
 
 	client, err := s.clientFactory.New(server)
 	if err != nil {
-		logger.Error("download failed: create ssh client failed", "server_name", server.Name, "server_ip", server.IP, "error", err)
+		logger.Error("下载失败：创建 SSH 客户端失败", "server_name", server.Name, "server_ip", server.IP, "error", err)
 		return SSHTransferResult{}, err
 	}
 	defer func() {
 		if closeErr := client.Close(); closeErr != nil {
-			logger.Error("download close client failed", "server_name", server.Name, "error", closeErr)
+			logger.Error("下载后关闭客户端失败", "server_name", server.Name, "error", closeErr)
 		}
 	}()
 
 	exists, err := client.FileExists(normalizedRemote)
 	if err != nil {
-		logger.Error("download failed: stat remote file failed", "remote_path", normalizedRemote, "error", err)
+		logger.Error("下载失败：获取远程文件信息失败", "remote_path", normalizedRemote, "error", err)
 		return SSHTransferResult{}, err
 	}
 	if !exists {
-		logger.Warn("download failed: remote file not found", "remote_path", normalizedRemote)
+		logger.Warn("下载失败：远程文件不存在", "remote_path", normalizedRemote)
 		return SSHTransferResult{}, ErrRemoteArtifactNotFound
 	}
 
 	written, err := client.DownloadFile(normalizedRemote, normalizedLocal)
 	if err != nil {
 		logger.Error(
-			"download failed",
+			"下载失败",
 			"server_name", server.Name,
 			"server_ip", server.IP,
 			"remote_path", normalizedRemote,
@@ -446,7 +446,7 @@ func (s *SSHArtifactTransferService) DownloadFileByPathWithPort(remotePath, loca
 	}
 
 	logger.Info(
-		"download success",
+		"下载成功",
 		"server_name", server.Name,
 		"server_ip", server.IP,
 		"port", server.Port,
@@ -481,7 +481,7 @@ func (s *SSHArtifactTransferService) SearchRemoteFileInDefaultOtherRootsWithPort
 	start := time.Now()
 
 	logger.Info(
-		"search remote file begin",
+		"远程文件搜索开始",
 		"server_name", strings.TrimSpace(serverName),
 		"port", port,
 		"file_name", strings.TrimSpace(fileName),
@@ -490,56 +490,56 @@ func (s *SSHArtifactTransferService) SearchRemoteFileInDefaultOtherRootsWithPort
 	)
 
 	if s.PathService == nil {
-		logger.Warn("search remote file failed: artifact path service is nil")
+		logger.Warn("远程文件搜索失败：构件路径服务为空")
 		return RemoteArtifactSearchResult{}, ErrArtifactPathServiceNil
 	}
 	if s.clientFactory == nil {
-		logger.Warn("search remote file failed: ssh client factory is nil")
+		logger.Warn("远程文件搜索失败：SSH 客户端工厂为空")
 		return RemoteArtifactSearchResult{}, ErrSSHClientFactoryNil
 	}
 
 	name, err := normalizeArtifactFileName(fileName)
 	if err != nil {
-		logger.Warn("search remote file failed: invalid file name", "file_name", fileName, "error", err)
+		logger.Warn("远程文件搜索失败：文件名无效", "file_name", fileName, "error", err)
 		return RemoteArtifactSearchResult{}, err
 	}
 
 	weightsPath, err := s.PathService.BuildPath(ArtifactCategoryWeights, StorageTargetOtherLocal, name)
 	if err != nil {
-		logger.Error("search remote file failed: build weights path failed", "file_name", name, "error", err)
+		logger.Error("远程文件搜索失败：构建权重路径失败", "file_name", name, "error", err)
 		return RemoteArtifactSearchResult{}, err
 	}
 	datasetsPath, err := s.PathService.BuildPath(ArtifactCategoryDatasets, StorageTargetOtherLocal, name)
 	if err != nil {
-		logger.Error("search remote file failed: build datasets path failed", "file_name", name, "error", err)
+		logger.Error("远程文件搜索失败：构建数据集路径失败", "file_name", name, "error", err)
 		return RemoteArtifactSearchResult{}, err
 	}
 
 	server, err := s.resolveServerWithPort(serverName, port)
 	if err != nil {
-		logger.Error("search remote file failed: resolve server failed", "server_name", serverName, "port", port, "error", err)
+		logger.Error("远程文件搜索失败：解析服务器配置失败", "server_name", serverName, "port", port, "error", err)
 		return RemoteArtifactSearchResult{}, err
 	}
 
 	client, err := s.clientFactory.New(server)
 	if err != nil {
-		logger.Error("search remote file failed: create ssh client failed", "server_name", server.Name, "server_ip", server.IP, "error", err)
+		logger.Error("远程文件搜索失败：创建 SSH 客户端失败", "server_name", server.Name, "server_ip", server.IP, "error", err)
 		return RemoteArtifactSearchResult{}, err
 	}
 	defer func() {
 		if closeErr := client.Close(); closeErr != nil {
-			logger.Error("search remote file close client failed", "server_name", server.Name, "error", closeErr)
+			logger.Error("远程文件搜索后关闭客户端失败", "server_name", server.Name, "error", closeErr)
 		}
 	}()
 
 	weightsExists, err := client.FileExists(weightsPath)
 	if err != nil {
-		logger.Error("search remote file failed: stat weights path failed", "remote_path", weightsPath, "error", err)
+		logger.Error("远程文件搜索失败：获取权重路径文件信息失败", "remote_path", weightsPath, "error", err)
 		return RemoteArtifactSearchResult{}, err
 	}
 	datasetsExists, err := client.FileExists(datasetsPath)
 	if err != nil {
-		logger.Error("search remote file failed: stat datasets path failed", "remote_path", datasetsPath, "error", err)
+		logger.Error("远程文件搜索失败：获取数据集路径文件信息失败", "remote_path", datasetsPath, "error", err)
 		return RemoteArtifactSearchResult{}, err
 	}
 
@@ -562,7 +562,7 @@ func (s *SSHArtifactTransferService) SearchRemoteFileInDefaultOtherRootsWithPort
 	}
 
 	logger.Info(
-		"search remote file success",
+		"远程文件搜索成功",
 		"server_name", server.Name,
 		"server_ip", server.IP,
 		"port", server.Port,
@@ -599,57 +599,57 @@ func (s *SSHArtifactTransferService) UploadArtifactByNameWithPort(fileName, serv
 	start := time.Now()
 
 	logger.Info(
-		"upload artifact by name begin",
+		"按名称上传构件开始",
 		"server_name", strings.TrimSpace(serverName),
 		"port", port,
 		"file_name", strings.TrimSpace(fileName),
 	)
 
 	if s.PathService == nil {
-		logger.Warn("upload artifact by name failed: artifact path service is nil")
+		logger.Warn("按名称上传构件失败：构件路径服务为空")
 		return SSHTransferResult{}, ErrArtifactPathServiceNil
 	}
 
 	name, err := normalizeArtifactFileName(fileName)
 	if err != nil {
-		logger.Warn("upload artifact by name failed: invalid file name", "file_name", fileName, "error", err)
+		logger.Warn("按名称上传构件失败：文件名无效", "file_name", fileName, "error", err)
 		return SSHTransferResult{}, err
 	}
 
 	localPath, category, err := s.resolveLocalBackendFile(name)
 	if err != nil {
-		logger.Warn("upload artifact by name failed: resolve local backend file failed", "file_name", name, "error", err)
+		logger.Warn("按名称上传构件失败：解析本地后端文件失败", "file_name", name, "error", err)
 		return SSHTransferResult{}, err
 	}
 
 	searchResult, err := s.SearchRemoteFileInDefaultOtherRootsWithPort(name, serverName, port)
 	if err != nil {
-		logger.Error("upload artifact by name failed: search remote file failed", "file_name", name, "server_name", serverName, "port", port, "error", err)
+		logger.Error("按名称上传构件失败：远程文件搜索失败", "file_name", name, "server_name", serverName, "port", port, "error", err)
 		return SSHTransferResult{}, err
 	}
 
 	switch category {
 	case ArtifactCategoryWeights:
 		if searchResult.ExistsInWeights {
-			logger.Warn("upload artifact by name failed: remote file already exists in weights", "remote_path", searchResult.WeightsPath)
+			logger.Warn("按名称上传构件失败：远程权重目录已存在同名文件", "remote_path", searchResult.WeightsPath)
 			return SSHTransferResult{}, ErrRemoteArtifactAlreadyExists
 		}
 	case ArtifactCategoryDatasets:
 		if searchResult.ExistsInDatasets {
-			logger.Warn("upload artifact by name failed: remote file already exists in datasets", "remote_path", searchResult.DatasetsPath)
+			logger.Warn("按名称上传构件失败：远程数据集目录已存在同名文件", "remote_path", searchResult.DatasetsPath)
 			return SSHTransferResult{}, ErrRemoteArtifactAlreadyExists
 		}
 	}
 
 	remotePath, err := s.PathService.BuildPath(category, StorageTargetOtherLocal, name)
 	if err != nil {
-		logger.Error("upload artifact by name failed: build remote target path failed", "category", category, "file_name", name, "error", err)
+		logger.Error("按名称上传构件失败：构建远程目标路径失败", "category", category, "file_name", name, "error", err)
 		return SSHTransferResult{}, err
 	}
 
 	result, err := s.UploadFileByPathWithPort(localPath, remotePath, serverName, port)
 	if err != nil {
-		logger.Error("upload artifact by name failed: upload by path failed", "error", err)
+		logger.Error("按名称上传构件失败：按路径上传失败", "error", err)
 		return SSHTransferResult{}, err
 	}
 
@@ -658,7 +658,7 @@ func (s *SSHArtifactTransferService) UploadArtifactByNameWithPort(fileName, serv
 	result.Cost = time.Since(start)
 
 	logger.Info(
-		"upload artifact by name success",
+		"按名称上传构件成功",
 		"server_name", result.ServerName,
 		"server_ip", result.ServerIP,
 		"port", port,
@@ -695,31 +695,31 @@ func (s *SSHArtifactTransferService) DownloadArtifactByNameWithPort(fileName, se
 	start := time.Now()
 
 	logger.Info(
-		"download artifact by name begin",
+		"按名称下载构件开始",
 		"server_name", strings.TrimSpace(serverName),
 		"port", port,
 		"file_name", strings.TrimSpace(fileName),
 	)
 
 	if s.PathService == nil {
-		logger.Warn("download artifact by name failed: artifact path service is nil")
+		logger.Warn("按名称下载构件失败：构件路径服务为空")
 		return SSHTransferResult{}, ErrArtifactPathServiceNil
 	}
 
 	name, err := normalizeArtifactFileName(fileName)
 	if err != nil {
-		logger.Warn("download artifact by name failed: invalid file name", "file_name", fileName, "error", err)
+		logger.Warn("按名称下载构件失败：文件名无效", "file_name", fileName, "error", err)
 		return SSHTransferResult{}, err
 	}
 
 	searchResult, err := s.SearchRemoteFileInDefaultOtherRootsWithPort(name, serverName, port)
 	if err != nil {
-		logger.Error("download artifact by name failed: search remote file failed", "file_name", name, "server_name", serverName, "port", port, "error", err)
+		logger.Error("按名称下载构件失败：远程文件搜索失败", "file_name", name, "server_name", serverName, "port", port, "error", err)
 		return SSHTransferResult{}, err
 	}
 	if !searchResult.AnyExists {
 		logger.Warn(
-			"download artifact by name failed: file not found in remote roots",
+			"按名称下载构件失败：远程根目录未找到文件",
 			"file_name", name,
 			"weights_path", searchResult.WeightsPath,
 			"datasets_path", searchResult.DatasetsPath,
@@ -728,7 +728,7 @@ func (s *SSHArtifactTransferService) DownloadArtifactByNameWithPort(fileName, se
 	}
 	if searchResult.ExistsInWeights && searchResult.ExistsInDatasets {
 		logger.Warn(
-			"download artifact by name failed: file exists in both remote roots",
+			"按名称下载构件失败：远程权重和数据集目录均存在同名文件",
 			"file_name", name,
 			"weights_path", searchResult.WeightsPath,
 			"datasets_path", searchResult.DatasetsPath,
@@ -745,13 +745,13 @@ func (s *SSHArtifactTransferService) DownloadArtifactByNameWithPort(fileName, se
 
 	localPath, err := s.PathService.BuildPath(category, StorageTargetBackend, name)
 	if err != nil {
-		logger.Error("download artifact by name failed: build local target path failed", "category", category, "file_name", name, "error", err)
+		logger.Error("按名称下载构件失败：构建本地目标路径失败", "category", category, "file_name", name, "error", err)
 		return SSHTransferResult{}, err
 	}
 
 	result, err := s.DownloadFileByPathWithPort(remotePath, localPath, serverName, port)
 	if err != nil {
-		logger.Error("download artifact by name failed: download by path failed", "error", err)
+		logger.Error("按名称下载构件失败：按路径下载失败", "error", err)
 		return SSHTransferResult{}, err
 	}
 
@@ -760,7 +760,7 @@ func (s *SSHArtifactTransferService) DownloadArtifactByNameWithPort(fileName, se
 	result.Cost = time.Since(start)
 
 	logger.Info(
-		"download artifact by name success",
+		"按名称下载构件成功",
 		"server_name", result.ServerName,
 		"server_ip", result.ServerIP,
 		"port", port,
@@ -796,7 +796,7 @@ func (s *SSHArtifactTransferService) resolveServerWithPort(serverName string, po
 
 	name := strings.TrimSpace(serverName)
 	if name == "" {
-		logger.Warn("resolve server failed: server name is empty")
+		logger.Warn("解析服务器配置失败：服务器名称为空")
 		return SSHServerConfig{}, ErrSSHServerNameRequired
 	}
 
@@ -804,7 +804,7 @@ func (s *SSHArtifactTransferService) resolveServerWithPort(serverName string, po
 		if cfg, ok := s.serverConfigs[name]; ok {
 			normalized, err := normalizeServerConfig(cfg)
 			if err != nil {
-				logger.Error("resolve server failed: invalid mapped config", "server_name", name, "error", err)
+				logger.Error("解析服务器配置失败：映射配置无效", "server_name", name, "error", err)
 				return SSHServerConfig{}, err
 			}
 			normalized.Name = name
@@ -812,11 +812,11 @@ func (s *SSHArtifactTransferService) resolveServerWithPort(serverName string, po
 				normalized.Port = port
 			}
 			if normalized.Port <= 0 || normalized.Port > 65535 {
-				logger.Error("resolve server failed: invalid port", "server_name", name, "port", normalized.Port)
+				logger.Error("解析服务器配置失败：端口无效", "server_name", name, "port", normalized.Port)
 				return SSHServerConfig{}, ErrSSHServerPortInvalid
 			}
 			logger.Info(
-				"resolve server from static mapping",
+				"从静态映射解析服务器配置",
 				"server_name", name,
 				"server_ip", normalized.IP,
 				"port", normalized.Port,
@@ -829,7 +829,7 @@ func (s *SSHArtifactTransferService) resolveServerWithPort(serverName string, po
 
 	fallback, err := normalizeServerConfig(s.defaultServer)
 	if err != nil {
-		logger.Error("resolve server failed: invalid default server config", "error", err)
+		logger.Error("解析服务器配置失败：默认配置无效", "error", err)
 		return SSHServerConfig{}, err
 	}
 	fallback.Name = name
@@ -837,11 +837,11 @@ func (s *SSHArtifactTransferService) resolveServerWithPort(serverName string, po
 		fallback.Port = port
 	}
 	if fallback.Port <= 0 || fallback.Port > 65535 {
-		logger.Error("resolve server failed: invalid port", "server_name", name, "port", fallback.Port)
+		logger.Error("解析服务器配置失败：端口无效", "server_name", name, "port", fallback.Port)
 		return SSHServerConfig{}, ErrSSHServerPortInvalid
 	}
 	logger.Warn(
-		"server not found in static mapping, use default static ip",
+		"静态映射中未找到服务器，使用默认静态IP",
 		"server_name", name,
 		"server_ip", fallback.IP,
 		"port", fallback.Port,

@@ -17,17 +17,17 @@ func main() {
 
 	// 1. Initialize configuration
 	if err := config.InitConfig(); err != nil {
-		log.Fatalf("Init config failed: %v", err)
+		log.Fatalf("初始化配置失败：%v", err)
 	}
 
 	// 2. Initialize database
 	if err := config.InitDB(); err != nil {
-		log.Fatalf("Init database failed: %v", err)
+		log.Fatalf("初始化数据库失败：%v", err)
 	}
 
 	// 3. Initialize redis
 	if err := config.InitRedis(); err != nil {
-		log.Fatalf("Init redis failed: %v", err)
+		log.Fatalf("初始化Redis失败：%v", err)
 	}
 
 	// 4. Setup router
@@ -39,8 +39,8 @@ func main() {
 		port = 8080
 	}
 
-	fmt.Printf("Server is running on port %d...\n", port)
+	fmt.Printf("服务已启动，监听端口 %d...\n", port)
 	if err := r.Run(fmt.Sprintf(":%d", port)); err != nil {
-		log.Fatalf("Server run failed: %v", err)
+		log.Fatalf("服务运行失败：%v", err)
 	}
 }

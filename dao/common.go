@@ -42,14 +42,14 @@ func daoLogger() *slog.Logger {
 func withContext(dbConn *gorm.DB, ctx context.Context) (*gorm.DB, error) {
 	logger := daoLogger().With("func", "withContext")
 	if dbConn == nil {
-		logger.Error("db is nil")
+		logger.Error("数据库连接为空")
 		return nil, ErrDBNotInitialized
 	}
 	if ctx == nil {
-		logger.Debug("context is nil, use background")
+		logger.Debug("上下文为空，使用后台上下文")
 		ctx = context.Background()
 	}
-	logger.Debug("bind context to db")
+	logger.Debug("绑定上下文到数据库")
 	return dbConn.WithContext(ctx), nil
 }
 
@@ -65,7 +65,7 @@ func normalizeQueryParams(params entity.QueryParams) entity.QueryParams {
 	if params.PageSize > maxPageSize {
 		params.PageSize = maxPageSize
 	}
-	logger.Debug("query params normalized", "page", params.Page, "page_size", params.PageSize)
+	logger.Debug("查询参数已规范化", "page", params.Page, "page_size", params.PageSize)
 	return params
 }
 
@@ -74,7 +74,7 @@ func pagination(params entity.QueryParams) (offset, limit int) {
 	logger := daoLogger().With("func", "pagination")
 	p := normalizeQueryParams(params)
 	offset, limit = (p.Page-1)*p.PageSize, p.PageSize
-	logger.Debug("pagination generated", "offset", offset, "limit", limit)
+	logger.Debug("分页参数已生成", "offset", offset, "limit", limit)
 	return offset, limit
 }
 
@@ -93,7 +93,7 @@ func normalizeStorageServers(servers []string) []string {
 		seen[label] = struct{}{}
 		result = append(result, label)
 	}
-	logger.Debug("normalized storage servers", "input", len(servers), "output", len(result))
+	logger.Debug("存储服务已规范化", "input", len(servers), "output", len(result))
 	return result
 }
 
@@ -121,19 +121,19 @@ func parseStorageServerValue(raw string) []string {
 	var arrayValue []string
 	if err := json.Unmarshal([]byte(value), &arrayValue); err == nil {
 		normalized := normalizeStorageServers(arrayValue)
-		logger.Debug("parsed storage server as array", "count", len(normalized))
+		logger.Debug("存储服务解析为数组", "count", len(normalized))
 		return normalized
 	}
 
 	var singleValue string
 	if err := json.Unmarshal([]byte(value), &singleValue); err == nil {
 		normalized := normalizeStorageServers([]string{singleValue})
-		logger.Debug("parsed storage server as single json string", "count", len(normalized))
+		logger.Debug("存储服务解析为单个JSON字符串", "count", len(normalized))
 		return normalized
 	}
 
 	normalized := normalizeStorageServers([]string{value})
-	logger.Debug("parsed storage server as plain string", "count", len(normalized))
+	logger.Debug("存储服务解析为普通字符串", "count", len(normalized))
 	return normalized
 }
 
@@ -142,10 +142,10 @@ func encodeStorageServerValue(servers []string) (string, error) {
 	normalized := normalizeStorageServers(servers)
 	bytes, err := json.Marshal(normalized)
 	if err != nil {
-		logger.Error("encode storage server failed", "error", err)
+		logger.Error("编码存储服务失败", "error", err)
 		return "", err
 	}
-	logger.Debug("encoded storage server", "count", len(normalized))
+	logger.Debug("存储服务编码完成", "count", len(normalized))
 	return string(bytes), nil
 }
 
@@ -156,12 +156,12 @@ func applyStorageServerAction(current []string, action string, incoming []string
 
 	switch strings.ToLower(strings.TrimSpace(action)) {
 	case "", StorageActionSet:
-		logger.Debug("apply action set", "incoming", len(normalizedIncoming))
+		logger.Debug("应用存储动作：设置", "incoming", len(normalizedIncoming))
 		return normalizedIncoming, nil
 	case StorageActionAdd:
 		result := append(append([]string{}, normalizedCurrent...), normalizedIncoming...)
 		merged := normalizeStorageServers(result)
-		logger.Debug("apply action add", "before", len(normalizedCurrent), "incoming", len(normalizedIncoming), "after", len(merged))
+		logger.Debug("应用存储动作：追加", "before", len(normalizedCurrent), "incoming", len(normalizedIncoming), "after", len(merged))
 		return merged, nil
 	case StorageActionRemove:
 		removeSet := make(map[string]struct{}, len(normalizedIncoming))
@@ -176,10 +176,10 @@ func applyStorageServerAction(current []string, action string, incoming []string
 			}
 			result = append(result, server)
 		}
-		logger.Debug("apply action remove", "before", len(normalizedCurrent), "incoming", len(normalizedIncoming), "after", len(result))
+		logger.Debug("应用存储动作：移除", "before", len(normalizedCurrent), "incoming", len(normalizedIncoming), "after", len(result))
 		return result, nil
 	default:
-		logger.Warn("apply action failed: invalid action", "action", action)
+		logger.Warn("应用存储动作失败：动作无效", "action", action)
 		return nil, ErrInvalidAction
 	}
 }

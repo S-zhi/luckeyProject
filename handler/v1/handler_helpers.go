@@ -27,16 +27,16 @@ func writeHTTPError(ctx *gin.Context, err error) {
 
 	switch {
 	case errors.Is(err, dao.ErrInvalidID), errors.Is(err, dao.ErrNilEntity), errors.Is(err, dao.ErrInvalidAction):
-		logger.Warn("request failed", "status", http.StatusBadRequest, "error", err)
+		logger.Warn("请求处理失败", "status", http.StatusBadRequest, "error", err)
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	case errors.Is(err, dao.ErrAlreadyExists):
-		logger.Warn("request failed", "status", http.StatusConflict, "error", err)
+		logger.Warn("请求处理失败", "status", http.StatusConflict, "error", err)
 		ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		logger.Warn("request failed", "status", http.StatusNotFound, "error", err)
+		logger.Warn("请求处理失败", "status", http.StatusNotFound, "error", err)
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "record not found"})
 	default:
-		logger.Error("request failed", "status", http.StatusInternalServerError, "error", err)
+		logger.Error("请求处理失败", "status", http.StatusInternalServerError, "error", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 	}
 }

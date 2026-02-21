@@ -19,7 +19,7 @@ type ModelDAO struct {
 // NewModelDAO 创建 ModelDAO，并注入全局数据库连接。
 func NewModelDAO() *ModelDAO {
 	logger := daoLogger().With("dao", "ModelDAO", "method", "NewModelDAO")
-	logger.Info("init model dao")
+	logger.Info("初始化模型DAO")
 	return &ModelDAO{
 		DB: config.DB,
 	}
@@ -29,10 +29,10 @@ func NewModelDAO() *ModelDAO {
 func (d *ModelDAO) Save(ctx context.Context, model *entity2.Model) error {
 	logger := daoLogger().With("dao", "ModelDAO", "method", "Save")
 	if model == nil {
-		logger.Warn("save model skipped: model is nil")
+		logger.Warn("保存模型已跳过：模型为空")
 		return ErrNilEntity
 	}
-	logger.Info("save model begin", "name", model.Name, "version", model.Version)
+	logger.Info("保存模型开始", "name", model.Name, "version", model.Version)
 
 	weightName := strings.TrimSpace(filepath.Base(model.WeightName))
 	if weightName == "" || weightName == "." || weightName == string(filepath.Separator) {
@@ -51,21 +51,21 @@ func (d *ModelDAO) Save(ctx context.Context, model *entity2.Model) error {
 		}
 	}
 	if weightName == "" || weightName == "." || weightName == string(filepath.Separator) {
-		logger.Warn("save model skipped: weight_name is empty")
+		logger.Warn("保存模型已跳过：权重文件名为空")
 		return ErrNilEntity
 	}
 	model.WeightName = weightName
 
 	normalizedStorageServer, err := encodeStorageServerValue(parseStorageServerValue(model.StorageServer))
 	if err != nil {
-		logger.Error("save model failed: normalize storage server", "name", model.Name, "error", err)
+		logger.Error("保存模型失败：存储服务标准化失败", "name", model.Name, "error", err)
 		return fmt.Errorf("save model failed: %w", err)
 	}
 	model.StorageServer = normalizedStorageServer
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
-		logger.Error("save model failed: with context", "name", model.Name, "error", err)
+		logger.Error("保存模型失败：绑定上下文失败", "name", model.Name, "error", err)
 		return fmt.Errorf("save model failed: %w", err)
 	}
 
@@ -73,18 +73,18 @@ func (d *ModelDAO) Save(ctx context.Context, model *entity2.Model) error {
 		Columns:   []clause.Column{{Name: "name"}, {Name: "version"}},
 		DoUpdates: clause.AssignmentColumns(updatableModelColumns()),
 	}).Create(model).Error; err != nil {
-		logger.Error("save model failed: create/upsert", "name", model.Name, "error", err)
+		logger.Error("保存模型失败：创建或更新失败", "name", model.Name, "error", err)
 		return fmt.Errorf("save model failed: %w", err)
 	}
 
 	if strings.TrimSpace(model.Name) != "" {
 		if err := dbConn.Where("name = ? AND version = ?", model.Name, model.Version).First(model).Error; err != nil {
-			logger.Error("save model failed: reload by unique key", "name", model.Name, "version", model.Version, "error", err)
+			logger.Error("保存模型失败：按唯一键回查失败", "name", model.Name, "version", model.Version, "error", err)
 			return fmt.Errorf("save model failed: %w", err)
 		}
 	}
 
-	logger.Info("save model success", "id", model.ID, "name", model.Name, "version", model.Version)
+	logger.Info("保存模型成功", "id", model.ID, "name", model.Name, "version", model.Version)
 	return nil
 }
 
@@ -92,13 +92,13 @@ func (d *ModelDAO) Save(ctx context.Context, model *entity2.Model) error {
 func (d *ModelDAO) GetStorageServersByID(ctx context.Context, id uint) ([]string, error) {
 	logger := daoLogger().With("dao", "ModelDAO", "method", "GetStorageServersByID")
 	if id == 0 {
-		logger.Warn("get model storage server skipped: invalid id", "id", id)
+		logger.Warn("查询模型存储服务已跳过：ID无效", "id", id)
 		return nil, ErrInvalidID
 	}
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
-		logger.Error("get model storage server failed: with context", "id", id, "error", err)
+		logger.Error("查询模型存储服务失败：绑定上下文失败", "id", id, "error", err)
 		return nil, fmt.Errorf("get model storage server failed: %w", err)
 	}
 
@@ -106,12 +106,12 @@ func (d *ModelDAO) GetStorageServersByID(ctx context.Context, id uint) ([]string
 		StorageServer string `gorm:"column:storage_server"`
 	}
 	if err := dbConn.Model(&entity2.Model{}).Select("storage_server").Where("id = ?", id).Take(&row).Error; err != nil {
-		logger.Error("get model storage server failed: db query", "id", id, "error", err)
+		logger.Error("查询模型存储服务失败：数据库查询失败", "id", id, "error", err)
 		return nil, err
 	}
 
 	servers := parseStorageServerValue(row.StorageServer)
-	logger.Info("get model storage server success", "id", id, "count", len(servers))
+	logger.Info("查询模型存储服务成功", "id", id, "count", len(servers))
 	return servers, nil
 }
 
@@ -119,40 +119,40 @@ func (d *ModelDAO) GetStorageServersByID(ctx context.Context, id uint) ([]string
 func (d *ModelDAO) UpdateStorageServersByID(ctx context.Context, id uint, action string, servers []string) ([]string, error) {
 	logger := daoLogger().With("dao", "ModelDAO", "method", "UpdateStorageServersByID")
 	if id == 0 {
-		logger.Warn("update model storage server skipped: invalid id", "id", id)
+		logger.Warn("更新模型存储服务已跳过：ID无效", "id", id)
 		return nil, ErrInvalidID
 	}
 
 	current, err := d.GetStorageServersByID(ctx, id)
 	if err != nil {
-		logger.Error("update model storage server failed: load current", "id", id, "error", err)
+		logger.Error("更新模型存储服务失败：加载当前值失败", "id", id, "error", err)
 		return nil, err
 	}
 
 	next, err := applyStorageServerAction(current, action, servers)
 	if err != nil {
-		logger.Error("update model storage server failed: apply action", "id", id, "action", action, "error", err)
+		logger.Error("更新模型存储服务失败：应用动作失败", "id", id, "action", action, "error", err)
 		return nil, err
 	}
 
 	encoded, err := encodeStorageServerValue(next)
 	if err != nil {
-		logger.Error("update model storage server failed: encode", "id", id, "error", err)
+		logger.Error("更新模型存储服务失败：编码失败", "id", id, "error", err)
 		return nil, fmt.Errorf("update model storage server failed: %w", err)
 	}
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
-		logger.Error("update model storage server failed: with context", "id", id, "error", err)
+		logger.Error("更新模型存储服务失败：绑定上下文失败", "id", id, "error", err)
 		return nil, fmt.Errorf("update model storage server failed: %w", err)
 	}
 
 	if err := dbConn.Model(&entity2.Model{}).Where("id = ?", id).Update("storage_server", encoded).Error; err != nil {
-		logger.Error("update model storage server failed: db update", "id", id, "error", err)
+		logger.Error("更新模型存储服务失败：数据库更新失败", "id", id, "error", err)
 		return nil, fmt.Errorf("update model storage server failed: %w", err)
 	}
 
-	logger.Info("update model storage server success", "id", id, "action", action, "count", len(next))
+	logger.Info("更新模型存储服务成功", "id", id, "action", action, "count", len(next))
 	return next, nil
 }
 
@@ -170,7 +170,7 @@ func updatableModelColumns() []string {
 		"params_url",
 		"weight_name",
 	}
-	daoLogger().With("dao", "ModelDAO", "method", "updatableModelColumns").Debug("updatable columns prepared", "count", len(columns))
+	daoLogger().With("dao", "ModelDAO", "method", "updatableModelColumns").Debug("可更新字段已准备", "count", len(columns))
 	return columns
 }
 
@@ -178,13 +178,13 @@ func updatableModelColumns() []string {
 func (d *ModelDAO) FindWeightNameByID(ctx context.Context, id uint) (string, error) {
 	logger := daoLogger().With("dao", "ModelDAO", "method", "FindWeightNameByID")
 	if id == 0 {
-		logger.Warn("find model weight_name skipped: invalid id", "id", id)
+		logger.Warn("查询模型权重文件名已跳过：ID无效", "id", id)
 		return "", ErrInvalidID
 	}
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
-		logger.Error("find model weight_name failed: with context", "id", id, "error", err)
+		logger.Error("查询模型权重文件名失败：绑定上下文失败", "id", id, "error", err)
 		return "", fmt.Errorf("find model weight_name failed: %w", err)
 	}
 
@@ -192,16 +192,16 @@ func (d *ModelDAO) FindWeightNameByID(ctx context.Context, id uint) (string, err
 		WeightName string `gorm:"column:weight_name"`
 	}
 	if err := dbConn.Model(&entity2.Model{}).Select("weight_name").Where("id = ?", id).Take(&row).Error; err != nil {
-		logger.Error("find model weight_name failed: db query", "id", id, "error", err)
+		logger.Error("查询模型权重文件名失败：数据库查询失败", "id", id, "error", err)
 		return "", err
 	}
 
 	weightName := strings.TrimSpace(row.WeightName)
 	if weightName == "" {
-		logger.Warn("find model weight_name empty", "id", id)
+		logger.Warn("查询模型权重文件名为空", "id", id)
 		return "", ErrNilEntity
 	}
-	logger.Info("find model weight_name success", "id", id, "weight_name", weightName)
+	logger.Info("查询模型权重文件名成功", "id", id, "weight_name", weightName)
 	return weightName, nil
 }
 
@@ -216,27 +216,27 @@ func (d *ModelDAO) UpdateWeightSizeByWeightName(ctx context.Context, weightName 
 
 	name := strings.TrimSpace(filepath.Base(weightName))
 	if name == "" || name == "." || name == string(filepath.Separator) {
-		logger.Warn("update model weight size skipped: invalid weight_name", "weight_name", weightName)
+		logger.Warn("更新模型权重大小已跳过：权重文件名无效", "weight_name", weightName)
 		return 0, ErrNilEntity
 	}
 	if weightSizeMB < 0 {
-		logger.Warn("update model weight size skipped: invalid weight_size_mb", "weight_name", name, "weight_size_mb", weightSizeMB)
+		logger.Warn("更新模型权重大小已跳过：权重大小MB无效", "weight_name", name, "weight_size_mb", weightSizeMB)
 		return 0, ErrNilEntity
 	}
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
-		logger.Error("update model weight size failed: with context", "weight_name", name, "error", err)
+		logger.Error("更新模型权重大小失败：绑定上下文失败", "weight_name", name, "error", err)
 		return 0, fmt.Errorf("update model weight size failed: %w", err)
 	}
 
 	result := dbConn.Model(&entity2.Model{}).Where("weight_name = ?", name).Update("weight_size_mb", weightSizeMB)
 	if result.Error != nil {
-		logger.Error("update model weight size failed: db update", "weight_name", name, "weight_size_mb", weightSizeMB, "error", result.Error)
+		logger.Error("更新模型权重大小失败：数据库更新失败", "weight_name", name, "weight_size_mb", weightSizeMB, "error", result.Error)
 		return 0, fmt.Errorf("update model weight size failed: %w", result.Error)
 	}
 
-	logger.Info("update model weight size success", "weight_name", name, "weight_size_mb", weightSizeMB, "rows_affected", result.RowsAffected)
+	logger.Info("更新模型权重大小成功", "weight_name", name, "weight_size_mb", weightSizeMB, "rows_affected", result.RowsAffected)
 	return result.RowsAffected, nil
 }
 
@@ -244,28 +244,28 @@ func (d *ModelDAO) UpdateWeightSizeByWeightName(ctx context.Context, weightName 
 func (d *ModelDAO) DeleteByID(ctx context.Context, id uint) error {
 	logger := daoLogger().With("dao", "ModelDAO", "method", "DeleteByID")
 	if id == 0 {
-		logger.Warn("delete model skipped: invalid id", "id", id)
+		logger.Warn("删除模型已跳过：ID无效", "id", id)
 		return ErrInvalidID
 	}
-	logger.Info("delete model begin", "id", id)
+	logger.Info("删除模型开始", "id", id)
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
-		logger.Error("delete model failed: with context", "id", id, "error", err)
+		logger.Error("删除模型失败：绑定上下文失败", "id", id, "error", err)
 		return fmt.Errorf("delete model by id failed: %w", err)
 	}
 
 	result := dbConn.Delete(&entity2.Model{}, id)
 	if result.Error != nil {
-		logger.Error("delete model failed: db delete", "id", id, "error", result.Error)
+		logger.Error("删除模型失败：数据库删除失败", "id", id, "error", result.Error)
 		return fmt.Errorf("delete model by id failed: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		logger.Warn("delete model not found", "id", id)
+		logger.Warn("删除模型未找到记录", "id", id)
 		return gorm.ErrRecordNotFound
 	}
 
-	logger.Info("delete model success", "id", id)
+	logger.Info("删除模型成功", "id", id)
 	return nil
 }
 
@@ -275,28 +275,28 @@ func (d *ModelDAO) DeleteByWeightName(ctx context.Context, weightName string) (i
 
 	name := strings.TrimSpace(filepath.Base(weightName))
 	if name == "" || name == "." || name == string(filepath.Separator) {
-		logger.Warn("delete model by weight_name skipped: invalid weight_name", "weight_name", weightName)
+		logger.Warn("按权重文件名删除模型已跳过：权重文件名无效", "weight_name", weightName)
 		return 0, ErrNilEntity
 	}
-	logger.Info("delete model by weight_name begin", "weight_name", name)
+	logger.Info("按权重文件名删除模型开始", "weight_name", name)
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
-		logger.Error("delete model by weight_name failed: with context", "weight_name", name, "error", err)
+		logger.Error("按权重文件名删除模型失败：绑定上下文失败", "weight_name", name, "error", err)
 		return 0, fmt.Errorf("delete model by weight_name failed: %w", err)
 	}
 
 	result := dbConn.Where("weight_name = ?", name).Delete(&entity2.Model{})
 	if result.Error != nil {
-		logger.Error("delete model by weight_name failed: db delete", "weight_name", name, "error", result.Error)
+		logger.Error("按权重文件名删除模型失败：数据库删除失败", "weight_name", name, "error", result.Error)
 		return 0, fmt.Errorf("delete model by weight_name failed: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		logger.Warn("delete model by weight_name not found", "weight_name", name)
+		logger.Warn("按权重文件名删除模型未找到记录", "weight_name", name)
 		return 0, gorm.ErrRecordNotFound
 	}
 
-	logger.Info("delete model by weight_name success", "weight_name", name, "rows_affected", result.RowsAffected)
+	logger.Info("按权重文件名删除模型成功", "weight_name", name, "rows_affected", result.RowsAffected)
 	return result.RowsAffected, nil
 }
 
@@ -304,24 +304,24 @@ func (d *ModelDAO) DeleteByWeightName(ctx context.Context, weightName string) (i
 func (d *ModelDAO) FindByID(ctx context.Context, id uint) (*entity2.Model, error) {
 	logger := daoLogger().With("dao", "ModelDAO", "method", "FindByID")
 	if id == 0 {
-		logger.Warn("find model by id skipped: invalid id", "id", id)
+		logger.Warn("按ID查询模型已跳过：ID无效", "id", id)
 		return nil, ErrInvalidID
 	}
-	logger.Info("find model by id begin", "id", id)
+	logger.Info("按ID查询模型开始", "id", id)
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
-		logger.Error("find model by id failed: with context", "id", id, "error", err)
+		logger.Error("按ID查询模型失败：绑定上下文失败", "id", id, "error", err)
 		return nil, fmt.Errorf("find model by id failed: %w", err)
 	}
 
 	var model entity2.Model
 	err = dbConn.First(&model, id).Error
 	if err != nil {
-		logger.Error("find model by id failed: db query", "id", id, "error", err)
+		logger.Error("按ID查询模型失败：数据库查询失败", "id", id, "error", err)
 		return &model, err
 	}
-	logger.Info("find model by id success", "id", model.ID, "name", model.Name)
+	logger.Info("按ID查询模型成功", "id", model.ID, "name", model.Name)
 	return &model, err
 }
 
@@ -330,25 +330,25 @@ func (d *ModelDAO) FindByName(ctx context.Context, name string) (*entity2.Model,
 	logger := daoLogger().With("dao", "ModelDAO", "method", "FindByName")
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
-		logger.Warn("find model by name skipped: empty name")
+		logger.Warn("按名称查询模型已跳过：名称为空")
 		return nil, ErrNilEntity
 	}
-	logger.Info("find model by name begin", "name", trimmed)
+	logger.Info("按名称查询模型开始", "name", trimmed)
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
-		logger.Error("find model by name failed: with context", "name", trimmed, "error", err)
+		logger.Error("按名称查询模型失败：绑定上下文失败", "name", trimmed, "error", err)
 		return nil, fmt.Errorf("find model by name failed: %w", err)
 	}
 
 	var model entity2.Model
 	err = dbConn.Where("name = ?", trimmed).Order("version DESC, id DESC").Take(&model).Error
 	if err != nil {
-		logger.Error("find model by name failed: db query", "name", trimmed, "error", err)
+		logger.Error("按名称查询模型失败：数据库查询失败", "name", trimmed, "error", err)
 		return nil, err
 	}
 
-	logger.Info("find model by name success", "id", model.ID, "name", model.Name)
+	logger.Info("按名称查询模型成功", "id", model.ID, "name", model.Name)
 	return &model, nil
 }
 
@@ -357,7 +357,7 @@ func (d *ModelDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]e
 	logger := daoLogger().With("dao", "ModelDAO", "method", "FindAll")
 	var models []entity2.Model
 	var total int64
-	logger.Info("find models begin",
+	logger.Info("分页查询模型开始",
 		"page", params.Page,
 		"page_size", params.PageSize,
 		"name", params.Name,
@@ -370,7 +370,7 @@ func (d *ModelDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]e
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
-		logger.Error("find models failed: with context", "error", err)
+		logger.Error("分页查询模型失败：绑定上下文失败", "error", err)
 		return nil, 0, fmt.Errorf("find models failed: %w", err)
 	}
 
@@ -418,7 +418,7 @@ func (d *ModelDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]e
 
 	// 兼容旧参数（旧表字段已删除），仅记录日志并忽略。
 	if params.DatasetID != nil || params.TrainTaskID != nil {
-		logger.Warn("legacy model filters ignored for new schema",
+		logger.Warn("新模型结构已忽略旧筛选条件",
 			"dataset_id_set", params.DatasetID != nil,
 			"train_task_id_set", params.TrainTaskID != nil,
 		)
@@ -440,7 +440,7 @@ func (d *ModelDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]e
 	// 4. 获取总数
 	err = dbConn.Count(&total).Error
 	if err != nil {
-		logger.Error("count models failed", "error", err)
+		logger.Error("统计模型总数失败", "error", err)
 		return nil, 0, fmt.Errorf("count models failed: %w", err)
 	}
 
@@ -448,11 +448,11 @@ func (d *ModelDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]e
 	offset, limit := pagination(params)
 	err = dbConn.Order(orderStr).Offset(offset).Limit(limit).Find(&models).Error
 	if err != nil {
-		logger.Error("query models failed", "error", err)
+		logger.Error("查询模型列表失败", "error", err)
 		return nil, 0, fmt.Errorf("query models failed: %w", err)
 	}
 
-	logger.Info("find models success", "total", total, "returned", len(models))
+	logger.Info("分页查询模型成功", "total", total, "returned", len(models))
 	return models, total, err
 }
 
@@ -460,29 +460,29 @@ func (d *ModelDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]e
 func (d *ModelDAO) UpdateMetadataByID(ctx context.Context, id uint, updates map[string]interface{}) (*entity2.Model, error) {
 	logger := daoLogger().With("dao", "ModelDAO", "method", "UpdateMetadataByID")
 	if id == 0 {
-		logger.Warn("update model metadata skipped: invalid id", "id", id)
+		logger.Warn("更新模型元数据已跳过：ID无效", "id", id)
 		return nil, ErrInvalidID
 	}
 	if len(updates) == 0 {
-		logger.Warn("update model metadata skipped: empty updates", "id", id)
+		logger.Warn("更新模型元数据已跳过：更新字段为空", "id", id)
 		return nil, ErrNilEntity
 	}
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
-		logger.Error("update model metadata failed: with context", "id", id, "error", err)
+		logger.Error("更新模型元数据失败：绑定上下文失败", "id", id, "error", err)
 		return nil, fmt.Errorf("update model metadata failed: %w", err)
 	}
 
 	var current entity2.Model
 	if err := dbConn.First(&current, id).Error; err != nil {
-		logger.Error("update model metadata failed: query current", "id", id, "error", err)
+		logger.Error("更新模型元数据失败：查询当前记录失败", "id", id, "error", err)
 		return nil, err
 	}
 
 	result := dbConn.Model(&entity2.Model{}).Where("id = ?", id).Updates(updates)
 	if result.Error != nil {
-		logger.Error("update model metadata failed: db update", "id", id, "error", result.Error)
+		logger.Error("更新模型元数据失败：数据库更新失败", "id", id, "error", result.Error)
 		if isDuplicateKeyError(result.Error) {
 			return nil, ErrAlreadyExists
 		}
@@ -491,10 +491,10 @@ func (d *ModelDAO) UpdateMetadataByID(ctx context.Context, id uint, updates map[
 
 	var updated entity2.Model
 	if err := dbConn.First(&updated, id).Error; err != nil {
-		logger.Error("update model metadata failed: reload", "id", id, "error", err)
+		logger.Error("更新模型元数据失败：回查失败", "id", id, "error", err)
 		return nil, err
 	}
 
-	logger.Info("update model metadata success", "id", id, "updated_fields", len(updates))
+	logger.Info("更新模型元数据成功", "id", id, "updated_fields", len(updates))
 	return &updated, nil
 }

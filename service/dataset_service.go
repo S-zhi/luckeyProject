@@ -31,7 +31,7 @@ func NewDatasetService() *DatasetService {
 func (s *DatasetService) CreateDataset(ctx context.Context, dataset *entity2.Dataset) error {
 	logger := serviceLogger().With("service", "DatasetService", "method", "CreateDataset")
 	if dataset == nil {
-		logger.Warn("create dataset skipped: dataset is nil")
+		logger.Warn("创建数据集已跳过：数据集为空")
 		return dao.ErrNilEntity
 	}
 
@@ -40,13 +40,13 @@ func (s *DatasetService) CreateDataset(ctx context.Context, dataset *entity2.Dat
 	dataset.FileName = deriveFileName(dataset.FileName, dataset.DatasetPath)
 	dataset.FileName = applyDatasetVersionToFileName(dataset.FileName, dataset.Version)
 	logger.Info(
-		"normalize dataset file_name",
+		"规范化数据集文件名",
 		"original_file_name", strings.TrimSpace(originalFileName),
 		"normalized_file_name", dataset.FileName,
 		"version", strings.TrimSpace(dataset.Version),
 	)
 	if dataset.FileName == "" {
-		logger.Warn("create dataset skipped: file_name is empty after normalization", "version", strings.TrimSpace(dataset.Version))
+		logger.Warn("创建数据集已跳过：规范化后文件名为空", "version", strings.TrimSpace(dataset.Version))
 		return dao.ErrNilEntity
 	}
 	if dataset.SizeMB <= 0 {
@@ -106,7 +106,7 @@ func (s *DatasetService) ResolveFilePathByID(ctx context.Context, id uint, stora
 func (s *DatasetService) UpdateDatasetMetadata(ctx context.Context, id uint, updates map[string]interface{}) (*entity2.Dataset, error) {
 	logger := serviceLogger().With("service", "DatasetService", "method", "UpdateDatasetMetadata", "id", id)
 	if len(updates) == 0 {
-		logger.Warn("update dataset metadata skipped: empty updates")
+		logger.Warn("更新数据集元数据已跳过：更新字段为空")
 		return nil, dao.ErrNilEntity
 	}
 
@@ -135,7 +135,7 @@ func (s *DatasetService) UpdateDatasetMetadata(ctx context.Context, id uint, upd
 			fileName, _ := rawFileName.(string)
 			normalized := deriveFileName(strings.TrimSpace(fileName), "")
 			if normalized == "" {
-				logger.Warn("update dataset metadata rejected: invalid file_name", "file_name", fileName)
+				logger.Warn("更新数据集元数据已拒绝：文件名无效", "file_name", fileName)
 				return nil, dao.ErrNilEntity
 			}
 			targetFileName = normalized
@@ -143,13 +143,13 @@ func (s *DatasetService) UpdateDatasetMetadata(ctx context.Context, id uint, upd
 
 		versionedFileName := applyDatasetVersionToFileName(targetFileName, targetVersion)
 		if versionedFileName == "" {
-			logger.Warn("update dataset metadata rejected: file_name is empty after version normalization", "version", targetVersion)
+			logger.Warn("更新数据集元数据已拒绝：版本规范化后文件名为空", "version", targetVersion)
 			return nil, dao.ErrNilEntity
 		}
 		updates["file_name"] = versionedFileName
 
 		logger.Info(
-			"normalize dataset file_name for metadata update",
+			"为元数据更新规范化数据集文件名",
 			"original_file_name", current.FileName,
 			"target_file_name", targetFileName,
 			"normalized_file_name", versionedFileName,

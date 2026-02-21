@@ -98,7 +98,7 @@ func (c *ModelController) UpdateModelStorageServers(ctx *gin.Context) {
 
 	action, servers := normalizeStorageServerPayload(payload)
 	logger.Info(
-		"update model storage server request",
+		"更新模型存储服务请求",
 		"model_id", id,
 		"action", action,
 		"servers", servers,
@@ -110,10 +110,10 @@ func (c *ModelController) UpdateModelStorageServers(ctx *gin.Context) {
 	}
 
 	logger.Info(
-		"update model storage server success (metadata only)",
+		"更新模型存储服务成功（仅更新元数据）",
 		"model_id", id,
 		"updated_servers", updated,
-		"note", "this endpoint does not upload files to remote server",
+		"note", "该接口仅更新元数据，不会向远程服务器上传文件",
 	)
 	ctx.JSON(http.StatusOK, buildStorageServerResponse(id, updated))
 }
@@ -143,7 +143,7 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 	}
 
 	logger.Info(
-		"upload model request",
+		"上传模型请求",
 		"original_file", file.Filename,
 		"artifact_name", artifactName,
 		"storage_target", storageTarget,
@@ -155,7 +155,7 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 	if coreServerKey == "" && shouldAutoUploadToCoreByStorageServer(storageServer) {
 		coreServerKey = strings.TrimSpace(storageServer)
 		logger.Info(
-			"core upload key auto-selected from storage_server",
+			"已从存储服务自动选择核心上传键",
 			"storage_server", storageServer,
 			"core_server_key", coreServerKey,
 		)
@@ -163,7 +163,7 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 
 	result, err := c.uploadService.SaveModelFile(file, artifactName, storageTarget, storageServer, uploadToBaidu)
 	if err != nil {
-		logger.Error("save model file failed", "error", err)
+		logger.Error("保存模型文件失败", "error", err)
 		switch {
 		case errors.Is(err, service.ErrInvalidUploadFile),
 			errors.Is(err, service.ErrInvalidUploadSubdir),
@@ -176,7 +176,7 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 	}
 
 	logger.Info(
-		"save model file success",
+		"保存模型文件成功",
 		"file_name", result.FileName,
 		"resolved_path", result.ResolvedPath,
 		"saved_path", result.SavedPath,
@@ -190,10 +190,10 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 	var coreTransfer *service.SSHTransferResult
 	var coreServer *service.CoreServer
 	if coreServerKey != "" {
-		logger.Info("core upload requested", "core_server_key", coreServerKey)
+		logger.Info("请求上传到核心服务器", "core_server_key", coreServerKey)
 		server, transfer, err := c.uploadModelToCoreServer(ctx, coreServerKey, result.FileName, result.ResolvedPath)
 		if err != nil {
-			logger.Error("core upload failed", "core_server_key", coreServerKey, "error", err)
+			logger.Error("上传到核心服务器失败", "core_server_key", coreServerKey, "error", err)
 			switch {
 			case errors.Is(err, service.ErrCoreServerKeyRequired),
 				errors.Is(err, service.ErrCoreServerNotFound),
@@ -211,7 +211,7 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 		coreServer = &server
 		coreTransfer = &transfer
 		logger.Info(
-			"core upload success",
+			"上传到核心服务器成功",
 			"core_server_key", server.Key,
 			"core_server_ip", server.IP,
 			"core_server_port", server.Port,
@@ -219,7 +219,7 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 			"bytes", transfer.Bytes,
 		)
 	} else {
-		logger.Info("core upload skipped", "reason", "core_server_key is empty")
+		logger.Info("已跳过上传到核心服务器", "reason", "core_server_key 为空")
 	}
 
 	affectedRows, weightSizeMB, err := c.modelService.SyncWeightSizeByFileName(ctx.Request.Context(), result.FileName, result.Size)
@@ -229,14 +229,14 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 	}
 	if affectedRows == 0 {
 		logger.Info(
-			"sync model weight size skipped",
+			"同步模型权重大小已跳过",
 			"weight_name", result.FileName,
 			"affected_rows", affectedRows,
-			"note", "no model record matched weight_name; this is expected if /v1/models is created after file upload",
+			"note", "没有模型记录匹配权重文件名；如果先上传文件后创建 /v1/models 记录，该情况属于预期",
 		)
 	} else {
 		logger.Info(
-			"sync model weight size success",
+			"同步模型权重大小成功",
 			"weight_name", result.FileName,
 			"affected_rows", affectedRows,
 			"weight_size_mb", weightSizeMB,
@@ -280,14 +280,14 @@ func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKe
 	}
 
 	logger.Info(
-		"resolve core server for upload",
+		"为上传解析核心服务器",
 		"core_server_key", coreServerKey,
 		"file_name", fileName,
 		"local_path", localPath,
 	)
 	coreServer, err := service.GetCoreServerByKey(ctx.Request.Context(), coreServerKey)
 	if err != nil {
-		logger.Error("resolve core server failed", "core_server_key", coreServerKey, "error", err)
+		logger.Error("解析核心服务器失败", "core_server_key", coreServerKey, "error", err)
 		return service.CoreServer{}, service.SSHTransferResult{}, err
 	}
 
@@ -299,7 +299,7 @@ func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKe
 	if privateKeyPath == "" {
 		privateKeyPath, err = resolveDefaultSSHPrivateKeyPath(homeDir)
 		if err != nil {
-			logger.Error("resolve ssh private key path failed", "error", err)
+			logger.Error("解析SSH私钥路径失败", "error", err)
 			return service.CoreServer{}, service.SSHTransferResult{}, err
 		}
 	}
@@ -315,19 +315,19 @@ func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKe
 		User:           sshUser,
 		PrivateKeyPath: privateKeyPath,
 	}); err != nil {
-		logger.Error("set ssh server config failed", "core_server_key", coreServer.Key, "error", err)
+		logger.Error("设置SSH服务器配置失败", "core_server_key", coreServer.Key, "error", err)
 		return service.CoreServer{}, service.SSHTransferResult{}, err
 	}
 
 	pathService := service.NewArtifactPathService()
 	remotePath, err := pathService.BuildPath(service.ArtifactCategoryWeights, service.StorageTargetOtherLocal, fileName)
 	if err != nil {
-		logger.Error("build remote path failed", "file_name", fileName, "error", err)
+		logger.Error("构建远程路径失败", "file_name", fileName, "error", err)
 		return service.CoreServer{}, service.SSHTransferResult{}, err
 	}
 
 	logger.Info(
-		"start ssh upload to core server",
+		"开始通过SSH上传到核心服务器",
 		"core_server_key", coreServer.Key,
 		"core_server_ip", coreServer.IP,
 		"core_server_port", coreServer.Port,
@@ -337,11 +337,11 @@ func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKe
 	)
 	transfer, err := c.sshUploadSvc.UploadFileByPathWithPort(localPath, remotePath, coreServer.Key, coreServer.Port)
 	if err != nil {
-		logger.Error("ssh upload failed", "core_server_key", coreServer.Key, "error", err)
+		logger.Error("SSH上传失败", "core_server_key", coreServer.Key, "error", err)
 		return service.CoreServer{}, service.SSHTransferResult{}, err
 	}
 	logger.Info(
-		"ssh upload finished",
+		"SSH上传完成",
 		"core_server_key", coreServer.Key,
 		"remote_path", transfer.TargetPath,
 		"bytes", transfer.Bytes,
