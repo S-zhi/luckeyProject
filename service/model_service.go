@@ -50,6 +50,9 @@ func (s *ModelService) GetAllModels(ctx context.Context, params entity2.QueryPar
 	if err != nil {
 		return entity2.PageResult{}, err
 	}
+	for i := range models {
+		models[i].StorageServer = normalizeStorageServerField(models[i].StorageServer)
+	}
 	return entity2.PageResult{
 		Total: total,
 		List:  models,

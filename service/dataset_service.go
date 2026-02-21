@@ -6,6 +6,7 @@ import (
 	"lucky_project/dao"
 	entity2 "lucky_project/entity"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -28,13 +29,24 @@ func NewDatasetService() *DatasetService {
 }
 
 func (s *DatasetService) CreateDataset(ctx context.Context, dataset *entity2.Dataset) error {
+	logger := serviceLogger().With("service", "DatasetService", "method", "CreateDataset")
 	if dataset == nil {
+		logger.Warn("create dataset skipped: dataset is nil")
 		return dao.ErrNilEntity
 	}
 
 	dataset.StorageServer = normalizeStorageServerField(dataset.StorageServer)
+	originalFileName := dataset.FileName
 	dataset.FileName = deriveFileName(dataset.FileName, dataset.DatasetPath)
+	dataset.FileName = applyDatasetVersionToFileName(dataset.FileName, dataset.Version)
+	logger.Info(
+		"normalize dataset file_name",
+		"original_file_name", strings.TrimSpace(originalFileName),
+		"normalized_file_name", dataset.FileName,
+		"version", strings.TrimSpace(dataset.Version),
+	)
 	if dataset.FileName == "" {
+		logger.Warn("create dataset skipped: file_name is empty after normalization", "version", strings.TrimSpace(dataset.Version))
 		return dao.ErrNilEntity
 	}
 	if dataset.SizeMB <= 0 {
@@ -50,6 +62,9 @@ func (s *DatasetService) GetAllDatasets(ctx context.Context, params entity2.Quer
 	datasets, total, err := s.datasetDAO.FindAll(ctx, params)
 	if err != nil {
 		return entity2.PageResult{}, err
+	}
+	for i := range datasets {
+		datasets[i].StorageServer = normalizeStorageServerField(datasets[i].StorageServer)
 	}
 	return entity2.PageResult{
 		Total: total,
@@ -89,7 +104,9 @@ func (s *DatasetService) ResolveFilePathByID(ctx context.Context, id uint, stora
 }
 
 func (s *DatasetService) UpdateDatasetMetadata(ctx context.Context, id uint, updates map[string]interface{}) (*entity2.Dataset, error) {
+	logger := serviceLogger().With("service", "DatasetService", "method", "UpdateDatasetMetadata", "id", id)
 	if len(updates) == 0 {
+		logger.Warn("update dataset metadata skipped: empty updates")
 		return nil, dao.ErrNilEntity
 	}
 
@@ -99,15 +116,48 @@ func (s *DatasetService) UpdateDatasetMetadata(ctx context.Context, id uint, upd
 		}
 	}
 
-	if rawFileName, ok := updates["file_name"]; ok {
-		fileName, _ := rawFileName.(string)
-		normalized := deriveFileName(strings.TrimSpace(fileName), "")
-		if normalized == "" {
+	_, hasFileName := updates["file_name"]
+	_, hasVersion := updates["version"]
+	if hasFileName || hasVersion {
+		current, err := s.datasetDAO.FindByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+
+		targetVersion := strings.TrimSpace(current.Version)
+		if rawVersion, ok := updates["version"]; ok {
+			version, _ := rawVersion.(string)
+			targetVersion = strings.TrimSpace(version)
+		}
+
+		targetFileName := strings.TrimSpace(current.FileName)
+		if rawFileName, ok := updates["file_name"]; ok {
+			fileName, _ := rawFileName.(string)
+			normalized := deriveFileName(strings.TrimSpace(fileName), "")
+			if normalized == "" {
+				logger.Warn("update dataset metadata rejected: invalid file_name", "file_name", fileName)
+				return nil, dao.ErrNilEntity
+			}
+			targetFileName = normalized
+		}
+
+		versionedFileName := applyDatasetVersionToFileName(targetFileName, targetVersion)
+		if versionedFileName == "" {
+			logger.Warn("update dataset metadata rejected: file_name is empty after version normalization", "version", targetVersion)
 			return nil, dao.ErrNilEntity
 		}
-		updates["file_name"] = normalized
+		updates["file_name"] = versionedFileName
+
+		logger.Info(
+			"normalize dataset file_name for metadata update",
+			"original_file_name", current.FileName,
+			"target_file_name", targetFileName,
+			"normalized_file_name", versionedFileName,
+			"version", targetVersion,
+		)
+
 		if _, hasSize := updates["size_mb"]; !hasSize {
-			if sizeMB, found := s.resolveLocalDatasetSizeMB(normalized); found {
+			if sizeMB, found := s.resolveLocalDatasetSizeMB(versionedFileName); found {
 				updates["size_mb"] = sizeMB
 			}
 		}
@@ -193,4 +243,36 @@ func (s *DatasetService) resolveLocalDatasetSizeMB(fileName string) (float64, bo
 		return 0, false
 	}
 	return bytesToMB(info.Size()), true
+}
+
+func applyDatasetVersionToFileName(fileName, version string) string {
+	name := strings.TrimSpace(fileName)
+	if name == "" {
+		return ""
+	}
+
+	versionToken := normalizeDatasetVersionToken(version)
+	if versionToken == "" {
+		return name
+	}
+
+	ext := filepath.Ext(name)
+	base := strings.TrimSuffix(name, ext)
+	suffix := "_" + versionToken
+	if strings.HasSuffix(base, suffix) {
+		return base + ext
+	}
+	return base + suffix + ext
+}
+
+func normalizeDatasetVersionToken(version string) string {
+	token := strings.TrimSpace(version)
+	if token == "" {
+		return ""
+	}
+
+	replacer := strings.NewReplacer("/", "_", "\\", "_", " ", "_")
+	token = replacer.Replace(token)
+	token = strings.Trim(token, "._-")
+	return token
 }

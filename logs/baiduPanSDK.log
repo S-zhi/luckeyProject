@@ -198,3 +198,28 @@
 [INFO] 2026/02/12 13:39:53 upload_file.go:119 - Successfully uploaded part 2
 [ERROR] 2026/02/12 13:39:53 upload_file.go:94 - Failed to close temporary file: close /var/folders/tb/zvxg4w317rdb5032dpbbp8280000gn/T/part-1617014166: file already closed
 [INFO] 2026/02/12 13:39:53 upload_file.go:146 - Successfully created file: /project/luckyProject/weights/yolo26n_v16.2.onnx
+[INFO] 2026/02/12 14:33:04 日志系统初始化成功
+[INFO] 2026/02/12 14:33:04 upload_file.go:159 - 未实现普通会员的情况
+[INFO] 2026/02/12 14:33:04 upload_file.go:163 - 授权用户为普通用户时，单个分片大小固定为4MB，单文件总大小上限为4GB
+[INFO] 2026/02/12 14:33:04 upload_file.go:35 - File size: 914
+[INFO] 2026/02/12 14:33:05 upload_file.go:119 - Successfully uploaded part 0
+[ERROR] 2026/02/12 14:33:05 upload_file.go:94 - Failed to close temporary file: close /var/folders/tb/zvxg4w317rdb5032dpbbp8280000gn/T/part-1158580198: file already closed
+[INFO] 2026/02/12 14:33:05 upload_file.go:146 - Successfully created file: /project/luckyProject/datasets/Mysql.zip
+[INFO] 2026/02/12 14:33:09 config.go:62 - NewBasicConfig 创建成功: {123.8ddd8010a2c14898b50dd162c843dd2f.YBzs9TPADNx7YXUWLIyBS8Ieba0zZ8mCwuhDlZ5.tOl86A unknown true logs/baiduPanSDK.log}
+[INFO] 2026/02/12 14:33:09 日志系统初始化成功
+[INFO] 2026/02/12 14:33:09 upload_file.go:159 - 未实现普通会员的情况
+[INFO] 2026/02/12 14:33:09 upload_file.go:163 - 授权用户为普通用户时，单个分片大小固定为4MB，单文件总大小上限为4GB
+[INFO] 2026/02/12 14:33:09 upload_file.go:35 - File size: 914
+[INFO] 2026/02/12 14:33:10 upload_file.go:119 - Successfully uploaded part 0
+[ERROR] 2026/02/12 14:33:10 upload_file.go:94 - Failed to close temporary file: close /var/folders/tb/zvxg4w317rdb5032dpbbp8280000gn/T/part-3671529246: file already closed
+[INFO] 2026/02/12 14:33:10 upload_file.go:146 - Successfully created file: /project/luckyProject/datasets/Mysql.zip
+[INFO] 2026/02/21 13:11:13 日志系统初始化成功
+[INFO] 2026/02/21 13:11:13 upload_file.go:159 - 未实现普通会员的情况
+[INFO] 2026/02/21 13:11:13 upload_file.go:163 - 授权用户为普通用户时，单个分片大小固定为4MB，单文件总大小上限为4GB
+[INFO] 2026/02/21 13:11:13 upload_file.go:35 - File size: 914
+[INFO] 2026/02/21 13:11:14 upload_file.go:119 - Successfully uploaded part 0
+[ERROR] 2026/02/21 13:11:14 upload_file.go:94 - Failed to close temporary file: close /var/folders/tb/zvxg4w317rdb5032dpbbp8280000gn/T/part-546593172: file already closed
+[INFO] 2026/02/21 13:11:15 upload_file.go:146 - Successfully created file: /project/luckyProject/datasets/Mysql.zip
+[INFO] 2026/02/21 22:33:35 日志系统初始化成功
+[INFO] 2026/02/21 22:33:35 download_file.go:121 - 开始下载文件: remote=/project/luckyProject/weights/model.weights, local=/Users/wenzhengfeng/code/go/lucky_project/weights/model.weights
+[ERROR] 2026/02/21 22:33:36 download_file.go:130 - 查找文件失败: file not found: /project/luckyProject/weights/model.weights

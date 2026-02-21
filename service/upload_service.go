@@ -74,8 +74,9 @@ func (s *UploadService) save(file *multipart.FileHeader, category, artifactName,
 		return UploadResult{}, ErrArtifactPathServiceNil
 	}
 
+	rawStorageServer := strings.TrimSpace(storageServer)
 	normalizedStorageServer := normalizeStorageServer(storageServer)
-	normalizedStorageTarget, actualUploadToBaidu, err := s.resolveUploadTarget(storageTarget, normalizedStorageServer, uploadToBaidu)
+	normalizedStorageTarget, actualUploadToBaidu, err := s.resolveUploadTarget(storageTarget, rawStorageServer, uploadToBaidu)
 	if err != nil {
 		return UploadResult{}, err
 	}
@@ -190,11 +191,10 @@ func (s *UploadService) resolveUploadTarget(storageTarget, storageServer string,
 }
 
 func normalizeStorageServer(storageServer string) string {
-	value := strings.TrimSpace(storageServer)
-	if value == "" {
-		return DefaultStorageServer
+	if label, ok := toStorageLabel(storageServer); ok {
+		return label
 	}
-	return value
+	return storageLabelLocal
 }
 
 func isBaiduStorageServer(storageServer string) bool {

@@ -27,6 +27,7 @@ const (
 	StorageActionSet    = "set"
 	StorageActionAdd    = "add"
 	StorageActionRemove = "remove"
+	storageLabelLocal   = "本地存储"
 )
 
 func daoLogger() *slog.Logger {
@@ -82,18 +83,32 @@ func normalizeStorageServers(servers []string) []string {
 	seen := make(map[string]struct{}, len(servers))
 	result := make([]string, 0, len(servers))
 	for _, server := range servers {
-		value := strings.TrimSpace(server)
-		if value == "" {
+		label, ok := toStorageLabel(server)
+		if !ok {
 			continue
 		}
-		if _, ok := seen[value]; ok {
+		if _, exists := seen[label]; exists {
 			continue
 		}
-		seen[value] = struct{}{}
-		result = append(result, value)
+		seen[label] = struct{}{}
+		result = append(result, label)
 	}
 	logger.Debug("normalized storage servers", "input", len(servers), "output", len(result))
 	return result
+}
+
+func toStorageLabel(raw string) (string, bool) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", false
+	}
+
+	switch strings.ToLower(value) {
+	case "baidu_netdisk", "baidu", "baidu-pan", "baidu_pan", "baidupan", "pan.baidu", "百度网盘":
+		return "", false
+	default:
+		return storageLabelLocal, true
+	}
 }
 
 func parseStorageServerValue(raw string) []string {

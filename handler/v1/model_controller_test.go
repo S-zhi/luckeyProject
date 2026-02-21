@@ -82,7 +82,7 @@ func TestModelAPI(t *testing.T) {
 		err = json.Unmarshal(w2.Body.Bytes(), &resp2)
 		assert.NoError(t, err)
 		assert.Equal(t, resp1.ID, resp2.ID)
-		assert.True(t, storageServerContains(resp2.StorageServer, model2.StorageServer))
+		assert.True(t, storageServerContains(resp2.StorageServer, "本地存储"))
 		assert.Equal(t, model2.WeightName, resp2.WeightName)
 	})
 
@@ -142,8 +142,8 @@ func TestModelAPI(t *testing.T) {
 		assert.Equal(t, "https://example.com/paper", derefString(updated.Paper))
 		assert.Equal(t, "https://example.com/params", derefString(updated.ParamsURL))
 		assert.Equal(t, "patch_model_updated.pt", updated.WeightName)
-		assert.True(t, storageServerContains(updated.StorageServer, "backend"))
-		assert.True(t, storageServerContains(updated.StorageServer, "baidu_netdisk"))
+		assert.True(t, storageServerContains(updated.StorageServer, "本地存储"))
+		assert.False(t, storageServerContains(updated.StorageServer, "baidu_netdisk"))
 	})
 
 	t.Run("Update Model Metadata Reject Immutable Field", func(t *testing.T) {
@@ -245,7 +245,7 @@ func TestModelAPI(t *testing.T) {
 		savedPath, ok := resp["saved_path"].(string)
 		assert.True(t, ok)
 		assert.NotEmpty(t, savedPath)
-		assert.Equal(t, "backend", resp["storage_server"])
+		assert.Equal(t, "本地存储", resp["storage_server"])
 		assert.Equal(t, "backend", resp["storage_target"])
 		assert.Equal(t, false, resp["upload_to_baidu"])
 		assert.Equal(t, false, resp["baidu_uploaded"])
@@ -273,7 +273,7 @@ func TestModelAPI(t *testing.T) {
 		var resp map[string]interface{}
 		err = json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
-		assert.Equal(t, "backend", resp["storage_server"])
+		assert.Equal(t, "本地存储", resp["storage_server"])
 		assert.Equal(t, "backend", resp["storage_target"])
 		assert.Equal(t, false, resp["upload_to_baidu"])
 		assert.Equal(t, false, resp["baidu_uploaded"])

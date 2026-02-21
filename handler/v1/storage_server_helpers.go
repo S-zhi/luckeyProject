@@ -37,25 +37,48 @@ func normalizeStorageServerPayload(payload storageServerUpdatePayload) (string, 
 
 	servers := make([]string, 0, len(payload.StorageServers)+1)
 	if single := strings.TrimSpace(payload.StorageServer); single != "" {
-		servers = append(servers, single)
+		if label, ok := normalizeStorageServerLabel(single); ok {
+			servers = append(servers, label)
+		}
 	}
 	for _, server := range payload.StorageServers {
-		if value := strings.TrimSpace(server); value != "" {
-			servers = append(servers, value)
+		if label, ok := normalizeStorageServerLabel(server); ok {
+			servers = append(servers, label)
 		}
 	}
 	return action, servers
 }
 
 func buildStorageServerResponse(id uint, servers []string) gin.H {
+	normalized := make([]string, 0, len(servers))
+	for _, server := range servers {
+		if label, ok := normalizeStorageServerLabel(server); ok {
+			normalized = append(normalized, label)
+		}
+	}
+
 	primary := ""
-	if len(servers) > 0 {
-		primary = servers[0]
+	if len(normalized) > 0 {
+		primary = normalized[0]
 	}
 
 	return gin.H{
 		"id":              id,
 		"storage_server":  primary,
-		"storage_servers": servers,
+		"storage_servers": normalized,
+	}
+}
+
+func normalizeStorageServerLabel(raw string) (string, bool) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", false
+	}
+
+	switch strings.ToLower(value) {
+	case "baidu_netdisk", "baidu", "baidu-pan", "baidu_pan", "baidupan", "pan.baidu", "百度网盘":
+		return "", false
+	default:
+		return "本地存储", true
 	}
 }

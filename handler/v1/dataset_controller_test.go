@@ -101,7 +101,7 @@ func TestDatasetAPI(t *testing.T) {
 		assert.Equal(t, updateReq["task_type"], updated.TaskType)
 		assert.Equal(t, updateReq["dataset_format"], updated.DatasetFormat)
 		assert.Equal(t, updateReq["dataset_path"], updated.DatasetPath)
-		assert.Equal(t, updateReq["file_name"], updated.FileName)
+		assert.Equal(t, "patch_dataset_updated_v2.0.0.zip", updated.FileName)
 		assert.Equal(t, "updated dataset description", derefString(updated.Description))
 		assert.Equal(t, "data_updated.yaml", derefString(updated.ConfigPath))
 		assert.Equal(t, updateReq["version"], updated.Version)
@@ -110,8 +110,8 @@ func TestDatasetAPI(t *testing.T) {
 		assert.Equal(t, uint(20), *updated.ValCount)
 		assert.Equal(t, uint(10), *updated.TestCount)
 		assert.InDelta(t, 222.333, updated.SizeMB, 0.0001)
-		assert.True(t, storageServerContains(updated.StorageServer, "backend"))
-		assert.True(t, storageServerContains(updated.StorageServer, "baidu_netdisk"))
+		assert.True(t, storageServerContains(updated.StorageServer, "本地存储"))
+		assert.False(t, storageServerContains(updated.StorageServer, "baidu_netdisk"))
 
 		var classNames []string
 		err = json.Unmarshal(updated.ClassNames, &classNames)
@@ -150,7 +150,7 @@ func TestDatasetAPI(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotZero(t, created.ID)
 
-		localPath := filepath.Join(service.DefaultBackendDatasetsRoot, fileName)
+		localPath := filepath.Join(service.DefaultBackendDatasetsRoot, created.FileName)
 		err = os.MkdirAll(filepath.Dir(localPath), 0o755)
 		assert.NoError(t, err)
 		content := []byte("mock dataset archive content")
@@ -165,7 +165,7 @@ func TestDatasetAPI(t *testing.T) {
 		w := performRequest(testRouter, "GET", downloadURL, nil)
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.Equal(t, string(content), w.Body.String())
-		assert.True(t, strings.Contains(w.Header().Get("Content-Disposition"), fileName))
+		assert.True(t, strings.Contains(w.Header().Get("Content-Disposition"), created.FileName))
 	})
 
 	// 2. 测试组合过滤查询
@@ -199,7 +199,7 @@ func TestDatasetAPI(t *testing.T) {
 		savedPath, ok := resp["saved_path"].(string)
 		assert.True(t, ok)
 		assert.NotEmpty(t, savedPath)
-		assert.Equal(t, "nas-02", resp["storage_server"])
+		assert.Equal(t, "本地存储", resp["storage_server"])
 		assert.Equal(t, "backend", resp["storage_target"])
 		assert.Equal(t, false, resp["upload_to_baidu"])
 		assert.Equal(t, false, resp["baidu_uploaded"])
@@ -229,7 +229,7 @@ func TestDatasetAPI(t *testing.T) {
 		var resp map[string]interface{}
 		err = json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
-		assert.Equal(t, "backend", resp["storage_server"])
+		assert.Equal(t, "本地存储", resp["storage_server"])
 		assert.Equal(t, "backend", resp["storage_target"])
 		assert.Equal(t, false, resp["upload_to_baidu"])
 		assert.Equal(t, false, resp["baidu_uploaded"])
@@ -248,7 +248,7 @@ func TestDatasetAPI(t *testing.T) {
 	})
 
 	t.Run("Upload Dataset File Sync MySQL Size", func(t *testing.T) {
-		fileName := fmt.Sprintf("sync_dataset_%d.zip", time.Now().UnixNano())
+		fileName := fmt.Sprintf("sync_dataset_%d_v1.0.0.zip", time.Now().UnixNano())
 		dataset := entity2.Dataset{
 			Name:          fmt.Sprintf("SyncSizeDataset_%d", time.Now().UnixNano()),
 			StorageServer: "backend",
@@ -318,20 +318,20 @@ func TestDatasetAPI(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotZero(t, created.ID)
 
-		localPath := filepath.Join(service.DefaultBackendDatasetsRoot, fileName)
+		localPath := filepath.Join(service.DefaultBackendDatasetsRoot, created.FileName)
 		err = os.MkdirAll(filepath.Dir(localPath), 0o755)
 		assert.NoError(t, err)
 		err = os.WriteFile(localPath, []byte("to-delete"), 0o644)
 		assert.NoError(t, err)
 
-		deleteURL := "/v1/datasets/by-filename?file_name=" + url.QueryEscape(fileName)
+		deleteURL := "/v1/datasets/by-filename?file_name=" + url.QueryEscape(created.FileName)
 		w := performRequest(testRouter, http.MethodDelete, deleteURL, nil)
 		assert.Equal(t, http.StatusOK, w.Code)
 
 		var resp map[string]interface{}
 		err = json.Unmarshal(w.Body.Bytes(), &resp)
 		assert.NoError(t, err)
-		assert.Equal(t, fileName, resp["file_name"])
+		assert.Equal(t, created.FileName, resp["file_name"])
 		assert.True(t, resp["deleted_records"].(float64) >= 1)
 
 		_, statErr := os.Stat(localPath)

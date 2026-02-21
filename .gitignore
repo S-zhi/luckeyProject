@@ -7,5 +7,6 @@
 /weights/*
 /datasets/*
 /logs/*
+/config/config.yaml
 /docs/*
 

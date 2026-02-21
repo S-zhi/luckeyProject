@@ -403,19 +403,8 @@ func (c *ModelController) DownloadModelFile(ctx *gin.Context) {
 		return
 	}
 
-	servers, err := c.modelService.GetStorageServersByID(ctx.Request.Context(), id)
-	if err != nil {
-		writeHTTPError(ctx, err)
-		return
-	}
-
 	if fileExists(localPath) {
 		ctx.FileAttachment(localPath, fileName)
-		return
-	}
-
-	if !containsBaiduStorage(servers) {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "model file not found in backend and baidu_netdisk is not configured"})
 		return
 	}
 
