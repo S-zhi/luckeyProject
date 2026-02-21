@@ -9,7 +9,7 @@ import (
 
 func parseDatasetMetadataUpdates(payload map[string]interface{}) (map[string]interface{}, error) {
 	if len(payload) == 0 {
-		return nil, fmt.Errorf("request body is empty")
+		return nil, fmt.Errorf("请求体不能为空")
 	}
 
 	updates := make(map[string]interface{}, len(payload))
@@ -60,7 +60,7 @@ func parseDatasetMetadataUpdates(payload map[string]interface{}) (map[string]int
 			}
 			fileName = strings.TrimSpace(filepath.Base(fileName))
 			if fileName == "" || fileName == "." || fileName == string(filepath.Separator) {
-				return nil, fmt.Errorf("file_name is invalid")
+				return nil, fmt.Errorf("file_name 非法")
 			}
 			updates["file_name"] = fileName
 		case "config_path":
@@ -113,18 +113,18 @@ func parseDatasetMetadataUpdates(payload map[string]interface{}) (map[string]int
 			updates["size_mb"] = sizeMB
 		case "storage_server":
 			if hasStorageServers {
-				return nil, fmt.Errorf("storage_server and storage_servers cannot be used together")
+				return nil, fmt.Errorf("storage_server 和 storage_servers 不能同时使用")
 			}
 			hasStorageServer = true
 			storageValue = value
 		case "storage_servers":
 			if hasStorageServer {
-				return nil, fmt.Errorf("storage_server and storage_servers cannot be used together")
+				return nil, fmt.Errorf("storage_server 和 storage_servers 不能同时使用")
 			}
 			hasStorageServers = true
 			storageValue = value
 		default:
-			return nil, fmt.Errorf("unsupported field: %s", key)
+			return nil, fmt.Errorf("不支持的字段: %s", key)
 		}
 	}
 
@@ -137,7 +137,7 @@ func parseDatasetMetadataUpdates(payload map[string]interface{}) (map[string]int
 	}
 
 	if len(updates) == 0 {
-		return nil, fmt.Errorf("no updatable fields provided")
+		return nil, fmt.Errorf("未提供可更新字段")
 	}
 
 	return updates, nil

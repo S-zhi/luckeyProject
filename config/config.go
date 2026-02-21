@@ -47,15 +47,15 @@ type BaiduPanConfig struct {
 var AppConfig *Config
 
 func InitConfig() error {
-	data, err := os.ReadFile("config/config.yaml")
+	data, err := os.ReadFile(DefaultConfigFilePath)
 	if err != nil {
-		return fmt.Errorf("read config file failed: %v", err)
+		return fmt.Errorf("读取配置文件失败: %v", err)
 	}
 
 	AppConfig = &Config{}
 	err = yaml.Unmarshal(data, AppConfig)
 	if err != nil {
-		return fmt.Errorf("unmarshal config failed: %v", err)
+		return fmt.Errorf("解析配置失败: %v", err)
 	}
 
 	if strings.TrimSpace(AppConfig.BaiduPan.LogPath) == "" {

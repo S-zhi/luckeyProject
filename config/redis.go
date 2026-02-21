@@ -14,13 +14,13 @@ var RedisClient *redis.Client
 
 func InitRedis() error {
 	if AppConfig == nil {
-		return errors.New("app config is not initialized")
+		return errors.New("应用配置未初始化")
 	}
 
 	cfg := AppConfig.Redis
 	host := strings.TrimSpace(cfg.Host)
 	if host == "" {
-		return errors.New("redis host is empty")
+		return errors.New("Redis host 为空")
 	}
 
 	port := cfg.Port
@@ -42,7 +42,7 @@ func InitRedis() error {
 
 	if err := client.Ping(ctx).Err(); err != nil {
 		_ = client.Close()
-		return fmt.Errorf("redis ping failed (host=%s port=%d db=%d): %w", host, port, cfg.DB, err)
+		return fmt.Errorf("Redis ping 失败 (host=%s port=%d db=%d): %w", host, port, cfg.DB, err)
 	}
 
 	RedisClient = client

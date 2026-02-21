@@ -17,12 +17,12 @@ var DB *gorm.DB
 
 func InitDB() error {
 	if AppConfig == nil {
-		return errors.New("app config is not initialized")
+		return errors.New("应用配置未初始化")
 	}
 
 	cfg := AppConfig.DB
 	if !strings.EqualFold(cfg.Driver, "mysql") {
-		return fmt.Errorf("unsupported db driver: %s", cfg.Driver)
+		return fmt.Errorf("不支持的数据库驱动: %s", cfg.Driver)
 	}
 
 	loc := url.QueryEscape("Asia/Shanghai")
@@ -42,21 +42,21 @@ func InitDB() error {
 	})
 	if err != nil {
 		return fmt.Errorf(
-			"connect mysql failed (host=%s port=%d db=%s user=%s): %w",
+			"连接 MySQL 失败 (host=%s port=%d db=%s user=%s): %w",
 			cfg.Host, cfg.Port, cfg.DBName, cfg.User, err,
 		)
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		return fmt.Errorf("get underlying sql.DB failed: %w", err)
+		return fmt.Errorf("获取底层 sql.DB 失败: %w", err)
 	}
 	sqlDB.SetMaxOpenConns(50)
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetConnMaxIdleTime(10 * time.Minute)
 	sqlDB.SetConnMaxLifetime(30 * time.Minute)
 	if err := sqlDB.Ping(); err != nil {
-		return fmt.Errorf("mysql ping failed: %w", err)
+		return fmt.Errorf("MySQL ping 失败: %w", err)
 	}
 
 	if err := ensureTables(db); err != nil {
@@ -79,7 +79,7 @@ func ensureTables(db *gorm.DB) error {
 			continue
 		}
 		if err := db.AutoMigrate(m); err != nil {
-			return fmt.Errorf("auto migrate missing table failed: %w", err)
+			return fmt.Errorf("自动迁移缺失表失败: %w", err)
 		}
 	}
 

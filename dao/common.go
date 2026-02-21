@@ -17,7 +17,7 @@ var (
 	ErrInvalidID        = errors.New("传入的 ID 不合法")
 	ErrNilEntity        = errors.New("实体对象 为 nil")
 	ErrAlreadyExists    = errors.New("记录已经存储在")
-	ErrInvalidAction    = errors.New("invalid action, must be one of: set/add/remove")
+	ErrInvalidAction    = errors.New("无效的 action，必须是 set/add/remove 之一")
 )
 
 const (

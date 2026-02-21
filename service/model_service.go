@@ -172,14 +172,14 @@ func (s *ModelService) DeleteByFileName(ctx context.Context, fileName string) (M
 		if os.IsNotExist(statErr) {
 			return result, nil
 		}
-		return result, fmt.Errorf("stat local model file failed: %w", statErr)
+		return result, fmt.Errorf("获取本地模型文件信息失败: %w", statErr)
 	}
 	if info.IsDir() {
 		return result, nil
 	}
 
 	if removeErr := os.Remove(localPath); removeErr != nil {
-		return result, fmt.Errorf("remove local model file failed: %w", removeErr)
+		return result, fmt.Errorf("删除本地模型文件失败: %w", removeErr)
 	}
 	result.LocalFileDeleted = true
 	return result, nil

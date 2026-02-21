@@ -34,7 +34,7 @@ func writeHTTPError(ctx *gin.Context, err error) {
 		ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		logger.Warn("请求处理失败", "status", http.StatusNotFound, "error", err)
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "record not found"})
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "记录不存在"})
 	default:
 		logger.Error("请求处理失败", "status", http.StatusInternalServerError, "error", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

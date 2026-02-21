@@ -14,9 +14,9 @@ import (
 
 const coreServersHashKey = "core-servers"
 
-var ErrRedisNotInitialized = errors.New("redis client is not initialized")
-var ErrCoreServerKeyRequired = errors.New("core server key is required")
-var ErrCoreServerNotFound = errors.New("core server not found")
+var ErrRedisNotInitialized = errors.New("Redis 客户端未初始化")
+var ErrCoreServerKeyRequired = errors.New("核心服务器 key 不能为空")
+var ErrCoreServerNotFound = errors.New("未找到核心服务器")
 
 type CoreServer struct {
 	Key  string `json:"key"`
@@ -39,7 +39,7 @@ func ListCoreServers(ctx context.Context) ([]CoreServer, error) {
 
 	rawMap, err := config.RedisClient.HGetAll(ctx, coreServersHashKey).Result()
 	if err != nil {
-		return nil, fmt.Errorf("hgetall %s failed: %w", coreServersHashKey, err)
+		return nil, fmt.Errorf("hgetall %s 失败: %w", coreServersHashKey, err)
 	}
 
 	keys := make([]string, 0, len(rawMap))
@@ -57,7 +57,7 @@ func ListCoreServers(ctx context.Context) ([]CoreServer, error) {
 
 		var value coreServerValue
 		if err := json.Unmarshal([]byte(raw), &value); err != nil {
-			return nil, fmt.Errorf("parse core server failed (key=%s): %w", key, err)
+			return nil, fmt.Errorf("解析核心服务器失败（key=%s）: %w", key, err)
 		}
 
 		result = append(result, CoreServer{
@@ -88,7 +88,7 @@ func GetCoreServerByKey(ctx context.Context, key string) (CoreServer, error) {
 		if errors.Is(err, redis.Nil) {
 			return CoreServer{}, ErrCoreServerNotFound
 		}
-		return CoreServer{}, fmt.Errorf("hget %s failed (key=%s): %w", coreServersHashKey, trimmedKey, err)
+		return CoreServer{}, fmt.Errorf("hget %s 失败（key=%s）: %w", coreServersHashKey, trimmedKey, err)
 	}
 
 	payload := strings.TrimSpace(raw)
@@ -98,7 +98,7 @@ func GetCoreServerByKey(ctx context.Context, key string) (CoreServer, error) {
 
 	var value coreServerValue
 	if err := json.Unmarshal([]byte(payload), &value); err != nil {
-		return CoreServer{}, fmt.Errorf("parse core server failed (key=%s): %w", trimmedKey, err)
+		return CoreServer{}, fmt.Errorf("解析核心服务器失败（key=%s）: %w", trimmedKey, err)
 	}
 
 	return CoreServer{

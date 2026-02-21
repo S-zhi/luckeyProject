@@ -355,7 +355,7 @@ func TestModelAPI(t *testing.T) {
 			"core_server_key": "rtx3090",
 		})
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
-		assert.Contains(t, w.Body.String(), "redis client is not initialized")
+		assert.Contains(t, w.Body.String(), "Redis 客户端未初始化")
 	})
 
 	t.Run("Upload Model File Core Server Name Alias Redis Error", func(t *testing.T) {
@@ -371,7 +371,7 @@ func TestModelAPI(t *testing.T) {
 			"core_server_name": "rtx3090",
 		})
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
-		assert.Contains(t, w.Body.String(), "redis client is not initialized")
+		assert.Contains(t, w.Body.String(), "Redis 客户端未初始化")
 	})
 
 	t.Run("Upload Model File Auto Core Server By Storage Server Redis Error", func(t *testing.T) {
@@ -387,7 +387,7 @@ func TestModelAPI(t *testing.T) {
 			"storage_server": "rtx3090",
 		})
 		assert.Equal(t, http.StatusInternalServerError, w.Code)
-		assert.Contains(t, w.Body.String(), "redis client is not initialized")
+		assert.Contains(t, w.Body.String(), "Redis 客户端未初始化")
 	})
 
 	t.Run("Upload Model File Sync MySQL Weight Size", func(t *testing.T) {

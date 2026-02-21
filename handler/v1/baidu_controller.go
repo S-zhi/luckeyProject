@@ -80,7 +80,7 @@ func (c *BaiduController) DownloadFileToLocal(ctx *gin.Context) {
 	}
 
 	resp := gin.H{
-		"message":     "download success",
+		"message":     "下载成功",
 		"remote_path": result.RemotePath,
 		"local_path":  result.LocalPath,
 		"file_name":   result.FileName,
@@ -126,7 +126,7 @@ func (c *BaiduController) resolveSyncTarget(ctx *gin.Context, req BaiduDownloadR
 	datasetTarget := req.DatasetID != nil || strings.TrimSpace(req.DatasetName) != ""
 
 	if modelTarget && datasetTarget {
-		return storageSyncTarget{}, fmt.Errorf("only one of model target or dataset target can be provided")
+		return storageSyncTarget{}, fmt.Errorf("模型目标和数据集目标只能提供一个")
 	}
 
 	if modelTarget {
@@ -171,10 +171,10 @@ func (c *BaiduController) resolveDownloadInput(ctx *gin.Context, req BaiduDownlo
 	}
 
 	if target.kind == "" {
-		return "", "", "", fmt.Errorf("remote_path is required when model/dataset target is not provided")
+		return "", "", "", fmt.Errorf("未提供模型/数据集目标时必须提供 remote_path")
 	}
 	if strings.TrimSpace(req.StorageTarget) == "" {
-		return "", "", "", fmt.Errorf("storage_target is required when remote_path is empty")
+		return "", "", "", fmt.Errorf("remote_path 为空时必须提供 storage_target")
 	}
 	if c.pathService == nil {
 		return "", "", "", service.ErrArtifactPathServiceNil
@@ -185,7 +185,7 @@ func (c *BaiduController) resolveDownloadInput(ctx *gin.Context, req BaiduDownlo
 		return "", "", "", err
 	}
 	if normalizedTarget != service.StorageTargetBaiduNetdisk {
-		return "", "", "", fmt.Errorf("record driven download requires storage_target=%s", service.StorageTargetBaiduNetdisk)
+		return "", "", "", fmt.Errorf("按记录驱动下载时必须设置 storage_target=%s", service.StorageTargetBaiduNetdisk)
 	}
 
 	switch target.kind {
@@ -214,7 +214,7 @@ func (c *BaiduController) resolveDownloadInput(ctx *gin.Context, req BaiduDownlo
 		}
 		category = service.ArtifactCategoryDatasets
 	default:
-		return "", "", "", fmt.Errorf("invalid sync target")
+		return "", "", "", fmt.Errorf("无效的同步目标")
 	}
 
 	return remotePath, category, fileName, nil

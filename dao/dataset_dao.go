@@ -49,18 +49,18 @@ func (d *DatasetDAO) Save(ctx context.Context, dataset *entity2.Dataset) error {
 	normalizedStorageServer, err := encodeStorageServerValue(parseStorageServerValue(dataset.StorageServer))
 	if err != nil {
 		logger.Error("保存数据集失败：存储服务标准化失败", "name", dataset.Name, "error", err)
-		return fmt.Errorf("save dataset failed: %w", err)
+		return fmt.Errorf("保存数据集失败: %w", err)
 	}
 	dataset.StorageServer = normalizedStorageServer
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("保存数据集失败：绑定上下文失败", "error", err)
-		return fmt.Errorf("save dataset failed: %w", err)
+		return fmt.Errorf("保存数据集失败: %w", err)
 	}
 	if err := dbConn.Create(dataset).Error; err != nil {
 		logger.Error("保存数据集失败：数据库创建失败", "error", err)
-		return fmt.Errorf("save dataset failed: %w", err)
+		return fmt.Errorf("保存数据集失败: %w", err)
 	}
 	logger.Info("保存数据集成功", "id", dataset.ID, "name", dataset.Name)
 	return nil
@@ -76,7 +76,7 @@ func (d *DatasetDAO) FindByID(ctx context.Context, id uint) (*entity2.Dataset, e
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("查询数据集失败：绑定上下文失败", "id", id, "error", err)
-		return nil, fmt.Errorf("find dataset by id failed: %w", err)
+		return nil, fmt.Errorf("按 ID 查询数据集失败: %w", err)
 	}
 	var dataset entity2.Dataset
 	err = dbConn.First(&dataset, id).Error
@@ -99,7 +99,7 @@ func (d *DatasetDAO) FindFileNameByID(ctx context.Context, id uint) (string, err
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("查询数据集文件名失败：绑定上下文失败", "id", id, "error", err)
-		return "", fmt.Errorf("find dataset file_name failed: %w", err)
+		return "", fmt.Errorf("查询数据集 file_name 失败: %w", err)
 	}
 
 	var row struct {
@@ -132,7 +132,7 @@ func (d *DatasetDAO) FindByName(ctx context.Context, name string) (*entity2.Data
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("按名称查询数据集失败：绑定上下文失败", "name", trimmed, "error", err)
-		return nil, fmt.Errorf("find dataset by name failed: %w", err)
+		return nil, fmt.Errorf("按名称查询数据集失败: %w", err)
 	}
 
 	var dataset entity2.Dataset
@@ -161,7 +161,7 @@ func (d *DatasetDAO) UpdateMetadataByID(ctx context.Context, id uint, updates ma
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("更新数据集元数据失败：绑定上下文失败", "id", id, "error", err)
-		return nil, fmt.Errorf("update dataset metadata failed: %w", err)
+		return nil, fmt.Errorf("更新数据集元数据失败: %w", err)
 	}
 
 	var current entity2.Dataset
@@ -176,7 +176,7 @@ func (d *DatasetDAO) UpdateMetadataByID(ctx context.Context, id uint, updates ma
 		if isDuplicateKeyError(result.Error) {
 			return nil, ErrAlreadyExists
 		}
-		return nil, fmt.Errorf("update dataset metadata failed: %w", result.Error)
+		return nil, fmt.Errorf("更新数据集元数据失败: %w", result.Error)
 	}
 
 	var updated entity2.Dataset
@@ -200,7 +200,7 @@ func (d *DatasetDAO) GetStorageServersByID(ctx context.Context, id uint) ([]stri
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("查询数据集存储服务失败：绑定上下文失败", "id", id, "error", err)
-		return nil, fmt.Errorf("get dataset storage server failed: %w", err)
+		return nil, fmt.Errorf("获取数据集存储服务失败: %w", err)
 	}
 
 	var row struct {
@@ -239,18 +239,18 @@ func (d *DatasetDAO) UpdateStorageServersByID(ctx context.Context, id uint, acti
 	encoded, err := encodeStorageServerValue(next)
 	if err != nil {
 		logger.Error("更新数据集存储服务失败：编码失败", "id", id, "error", err)
-		return nil, fmt.Errorf("update dataset storage server failed: %w", err)
+		return nil, fmt.Errorf("更新数据集存储服务失败: %w", err)
 	}
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("更新数据集存储服务失败：绑定上下文失败", "id", id, "error", err)
-		return nil, fmt.Errorf("update dataset storage server failed: %w", err)
+		return nil, fmt.Errorf("更新数据集存储服务失败: %w", err)
 	}
 
 	if err := dbConn.Model(&entity2.Dataset{}).Where("id = ?", id).Update("storage_server", encoded).Error; err != nil {
 		logger.Error("更新数据集存储服务失败：数据库更新失败", "id", id, "error", err)
-		return nil, fmt.Errorf("update dataset storage server failed: %w", err)
+		return nil, fmt.Errorf("更新数据集存储服务失败: %w", err)
 	}
 
 	logger.Info("更新数据集存储服务成功", "id", id, "action", action, "count", len(next))
@@ -274,13 +274,13 @@ func (d *DatasetDAO) UpdateSizeByFileName(ctx context.Context, fileName string, 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("更新数据集大小失败：绑定上下文失败", "file_name", name, "error", err)
-		return 0, fmt.Errorf("update dataset size failed: %w", err)
+		return 0, fmt.Errorf("更新数据集大小失败: %w", err)
 	}
 
 	result := dbConn.Model(&entity2.Dataset{}).Where("file_name = ?", name).Update("size_mb", sizeMB)
 	if result.Error != nil {
 		logger.Error("更新数据集大小失败：数据库更新失败", "file_name", name, "size_mb", sizeMB, "error", result.Error)
-		return 0, fmt.Errorf("update dataset size failed: %w", result.Error)
+		return 0, fmt.Errorf("更新数据集大小失败: %w", result.Error)
 	}
 
 	logger.Info("更新数据集大小成功", "file_name", name, "size_mb", sizeMB, "rows_affected", result.RowsAffected)
@@ -301,13 +301,13 @@ func (d *DatasetDAO) DeleteByFileName(ctx context.Context, fileName string) (int
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("按文件名删除数据集失败：绑定上下文失败", "file_name", name, "error", err)
-		return 0, fmt.Errorf("delete dataset by file_name failed: %w", err)
+		return 0, fmt.Errorf("按 file_name 删除数据集失败: %w", err)
 	}
 
 	result := dbConn.Where("file_name = ?", name).Delete(&entity2.Dataset{})
 	if result.Error != nil {
 		logger.Error("按文件名删除数据集失败：数据库删除失败", "file_name", name, "error", result.Error)
-		return 0, fmt.Errorf("delete dataset by file_name failed: %w", result.Error)
+		return 0, fmt.Errorf("按 file_name 删除数据集失败: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		logger.Warn("按文件名删除数据集未找到记录", "file_name", name)
@@ -334,7 +334,7 @@ func (d *DatasetDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("分页查询数据集失败：绑定上下文失败", "error", err)
-		return nil, 0, fmt.Errorf("find datasets failed: %w", err)
+		return nil, 0, fmt.Errorf("查询数据集列表失败: %w", err)
 	}
 
 	dbConn = dbConn.Model(&entity2.Dataset{})
@@ -380,7 +380,7 @@ func (d *DatasetDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([
 	err = dbConn.Count(&total).Error
 	if err != nil {
 		logger.Error("统计数据集总数失败", "error", err)
-		return nil, 0, fmt.Errorf("count datasets failed: %w", err)
+		return nil, 0, fmt.Errorf("统计数据集数量失败: %w", err)
 	}
 
 	// 4. 执行分页查询 (默认 ID 降序)
@@ -400,7 +400,7 @@ func (d *DatasetDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([
 	err = dbConn.Order(orderStr).Offset(offset).Limit(limit).Find(&datasets).Error
 	if err != nil {
 		logger.Error("查询数据集列表失败", "error", err)
-		return nil, 0, fmt.Errorf("query datasets failed: %w", err)
+		return nil, 0, fmt.Errorf("执行数据集查询失败: %w", err)
 	}
 
 	logger.Info("分页查询数据集成功", "total", total, "returned", len(datasets))

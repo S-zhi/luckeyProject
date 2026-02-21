@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	ErrInvalidUploadFile      = errors.New("invalid upload file")
-	ErrInvalidUploadSubdir    = errors.New("invalid upload subdir")
-	ErrBaiduUploaderNil       = errors.New("baidu uploader is nil")
-	ErrArtifactPathServiceNil = errors.New("artifact path service is nil")
+	ErrInvalidUploadFile      = errors.New("上传文件无效")
+	ErrInvalidUploadSubdir    = errors.New("上传子目录无效")
+	ErrBaiduUploaderNil       = errors.New("百度网盘上传器未初始化")
+	ErrArtifactPathServiceNil = errors.New("制品路径服务未初始化")
 )
 
 const (
@@ -100,24 +100,24 @@ func (s *UploadService) save(file *multipart.FileHeader, category, artifactName,
 		return UploadResult{}, err
 	}
 	if err := os.MkdirAll(filepath.Dir(resolvedPath), 0o755); err != nil {
-		return UploadResult{}, fmt.Errorf("create upload dir failed: %w", err)
+		return UploadResult{}, fmt.Errorf("创建上传目录失败: %w", err)
 	}
 
 	src, err := file.Open()
 	if err != nil {
-		return UploadResult{}, fmt.Errorf("open upload file failed: %w", err)
+		return UploadResult{}, fmt.Errorf("打开上传文件失败: %w", err)
 	}
 	defer src.Close()
 
 	dst, err := os.Create(resolvedPath)
 	if err != nil {
-		return UploadResult{}, fmt.Errorf("create target file failed: %w", err)
+		return UploadResult{}, fmt.Errorf("创建目标文件失败: %w", err)
 	}
 	defer dst.Close()
 
 	n, err := io.Copy(dst, src)
 	if err != nil {
-		return UploadResult{}, fmt.Errorf("save upload file failed: %w", err)
+		return UploadResult{}, fmt.Errorf("保存上传文件失败: %w", err)
 	}
 
 	result := UploadResult{

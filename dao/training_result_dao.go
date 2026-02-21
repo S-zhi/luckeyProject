@@ -34,11 +34,11 @@ func (d *TrainingResultDAO) Save(ctx context.Context, result *entity2.ModelTrain
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("保存训练结果失败：绑定上下文失败", "error", err)
-		return fmt.Errorf("save training result failed: %w", err)
+		return fmt.Errorf("保存训练结果失败: %w", err)
 	}
 	if err := dbConn.Create(result).Error; err != nil {
 		logger.Error("保存训练结果失败：数据库创建失败", "error", err)
-		return fmt.Errorf("save training result failed: %w", err)
+		return fmt.Errorf("保存训练结果失败: %w", err)
 	}
 	logger.Info("保存训练结果成功", "id", result.ID)
 	return nil
@@ -56,7 +56,7 @@ func (d *TrainingResultDAO) FindByID(ctx context.Context, id uint) (*entity2.Mod
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("按ID查询训练结果失败：绑定上下文失败", "id", id, "error", err)
-		return nil, fmt.Errorf("find training result by id failed: %w", err)
+		return nil, fmt.Errorf("按 ID 查询训练结果失败: %w", err)
 	}
 
 	var result entity2.ModelTrainingResult
@@ -85,7 +85,7 @@ func (d *TrainingResultDAO) FindAll(ctx context.Context, params entity2.QueryPar
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("分页查询训练结果失败：绑定上下文失败", "error", err)
-		return nil, 0, fmt.Errorf("find training results failed: %w", err)
+		return nil, 0, fmt.Errorf("查询训练结果列表失败: %w", err)
 	}
 
 	dbConn = dbConn.Model(&entity2.ModelTrainingResult{})
@@ -105,7 +105,7 @@ func (d *TrainingResultDAO) FindAll(ctx context.Context, params entity2.QueryPar
 	err = dbConn.Count(&total).Error
 	if err != nil {
 		logger.Error("统计训练结果总数失败", "error", err)
-		return nil, 0, fmt.Errorf("count training results failed: %w", err)
+		return nil, 0, fmt.Errorf("统计训练结果数量失败: %w", err)
 	}
 
 	// 3. 执行分页查询 (默认 ID 降序)
@@ -113,7 +113,7 @@ func (d *TrainingResultDAO) FindAll(ctx context.Context, params entity2.QueryPar
 	err = dbConn.Order("id DESC").Offset(offset).Limit(limit).Find(&results).Error
 	if err != nil {
 		logger.Error("查询训练结果列表失败", "error", err)
-		return nil, 0, fmt.Errorf("query training results failed: %w", err)
+		return nil, 0, fmt.Errorf("执行训练结果查询失败: %w", err)
 	}
 
 	logger.Info("分页查询训练结果成功", "total", total, "returned", len(results))

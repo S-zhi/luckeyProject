@@ -11,7 +11,7 @@ import (
 
 func parseModelMetadataUpdates(payload map[string]interface{}) (map[string]interface{}, error) {
 	if len(payload) == 0 {
-		return nil, fmt.Errorf("request body is empty")
+		return nil, fmt.Errorf("请求体不能为空")
 	}
 
 	updates := make(map[string]interface{}, len(payload))
@@ -92,23 +92,23 @@ func parseModelMetadataUpdates(payload map[string]interface{}) (map[string]inter
 			}
 			weightName = strings.TrimSpace(filepath.Base(weightName))
 			if weightName == "" || weightName == "." || weightName == string(filepath.Separator) {
-				return nil, fmt.Errorf("weight_name is invalid")
+				return nil, fmt.Errorf("weight_name 非法")
 			}
 			updates["weight_name"] = weightName
 		case "storage_server":
 			if hasStorageServers {
-				return nil, fmt.Errorf("storage_server and storage_servers cannot be used together")
+				return nil, fmt.Errorf("storage_server 和 storage_servers 不能同时使用")
 			}
 			hasStorageServer = true
 			storageValue = value
 		case "storage_servers":
 			if hasStorageServer {
-				return nil, fmt.Errorf("storage_server and storage_servers cannot be used together")
+				return nil, fmt.Errorf("storage_server 和 storage_servers 不能同时使用")
 			}
 			hasStorageServers = true
 			storageValue = value
 		default:
-			return nil, fmt.Errorf("unsupported field: %s", key)
+			return nil, fmt.Errorf("不支持的字段: %s", key)
 		}
 	}
 
@@ -121,7 +121,7 @@ func parseModelMetadataUpdates(payload map[string]interface{}) (map[string]inter
 	}
 
 	if len(updates) == 0 {
-		return nil, fmt.Errorf("no updatable fields provided")
+		return nil, fmt.Errorf("未提供可更新字段")
 	}
 
 	return updates, nil
@@ -258,7 +258,7 @@ func normalizeStorageServerPatchValue(value interface{}) (string, error) {
 	normalized := normalizeStorageServerArray(servers)
 	encoded, err := json.Marshal(normalized)
 	if err != nil {
-		return "", fmt.Errorf("storage_server encode failed: %w", err)
+		return "", fmt.Errorf("storage_server 编码失败: %w", err)
 	}
 	return string(encoded), nil
 }
@@ -290,13 +290,13 @@ func parseStorageServerPatchValue(value interface{}) ([]string, error) {
 		for i, item := range typed {
 			server, ok := item.(string)
 			if !ok {
-				return nil, fmt.Errorf("storage_servers[%d] must be string", i)
+				return nil, fmt.Errorf("storage_servers[%d] 必须是字符串", i)
 			}
 			servers = append(servers, server)
 		}
 		return servers, nil
 	default:
-		return nil, fmt.Errorf("storage_server must be string, string array or null")
+		return nil, fmt.Errorf("storage_server 必须是字符串、字符串数组或 null")
 	}
 }
 

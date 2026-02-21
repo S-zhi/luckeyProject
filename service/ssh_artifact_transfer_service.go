@@ -27,35 +27,35 @@ const (
 
 var (
 	// ErrSSHClientFactoryNil SSH客户端工厂为空错误
-	ErrSSHClientFactoryNil = errors.New("ssh client factory is nil")
+	ErrSSHClientFactoryNil = errors.New("SSH 客户端工厂未初始化")
 	// ErrSSHServerNameRequired 服务器名称必填错误
-	ErrSSHServerNameRequired = errors.New("server name is required")
+	ErrSSHServerNameRequired = errors.New("服务器名称不能为空")
 	// ErrSSHServerIPRequired 服务器IP必填错误
-	ErrSSHServerIPRequired = errors.New("server ip is required")
+	ErrSSHServerIPRequired = errors.New("服务器 IP 不能为空")
 	// ErrSSHServerPortInvalid SSH服务器端口非法错误
-	ErrSSHServerPortInvalid = errors.New("ssh server port is invalid")
+	ErrSSHServerPortInvalid = errors.New("SSH 服务器端口无效")
 	// ErrSSHServerUserRequired SSH服务器用户必填错误
-	ErrSSHServerUserRequired = errors.New("ssh server user is required")
+	ErrSSHServerUserRequired = errors.New("SSH 用户名不能为空")
 	// ErrSSHPrivateKeyPathRequired SSH私钥路径必填错误
-	ErrSSHPrivateKeyPathRequired = errors.New("ssh private key path is required")
+	ErrSSHPrivateKeyPathRequired = errors.New("SSH 私钥路径不能为空")
 	// ErrSSHFilePathRequired 文件路径必填错误
-	ErrSSHFilePathRequired = errors.New("file path is required")
+	ErrSSHFilePathRequired = errors.New("文件路径不能为空")
 	// ErrLocalSourceFileNotFound 本地源文件未找到错误
-	ErrLocalSourceFileNotFound = errors.New("local source file not found")
+	ErrLocalSourceFileNotFound = errors.New("未找到本地源文件")
 	// ErrLocalSourcePathNotRegularFile 本地源路径非常规文件错误
-	ErrLocalSourcePathNotRegularFile = errors.New("local source path is not a regular file")
+	ErrLocalSourcePathNotRegularFile = errors.New("本地源路径不是普通文件")
 	// ErrRemoteArtifactNotFound 远程构件未找到错误
-	ErrRemoteArtifactNotFound = errors.New("remote artifact not found")
+	ErrRemoteArtifactNotFound = errors.New("未找到远端制品文件")
 	// ErrRemoteArtifactAlreadyExists 远程构件已存在错误
-	ErrRemoteArtifactAlreadyExists = errors.New("remote artifact already exists")
+	ErrRemoteArtifactAlreadyExists = errors.New("远端制品文件已存在")
 	// ErrArtifactNotFoundInBackendRoots 后端根目录中未找到构件错误
-	ErrArtifactNotFoundInBackendRoots = errors.New("artifact not found in backend roots")
+	ErrArtifactNotFoundInBackendRoots = errors.New("后端根目录中未找到制品文件")
 	// ErrArtifactNotFoundInRemoteOtherRoot 远程other根目录中未找到构件错误
-	ErrArtifactNotFoundInRemoteOtherRoot = errors.New("artifact not found in remote other roots")
+	ErrArtifactNotFoundInRemoteOtherRoot = errors.New("远端 other 根目录中未找到制品文件")
 	// ErrArtifactConflictInBackendRoots 构件在后端根目录中冲突错误
-	ErrArtifactConflictInBackendRoots = errors.New("artifact exists in both backend roots")
+	ErrArtifactConflictInBackendRoots = errors.New("两个后端根目录都存在同名制品")
 	// ErrArtifactConflictInRemoteRoots 构件在远程根目录中冲突错误
-	ErrArtifactConflictInRemoteRoots = errors.New("artifact exists in both remote roots")
+	ErrArtifactConflictInRemoteRoots = errors.New("两个远端根目录都存在同名制品")
 )
 
 var (
@@ -284,7 +284,7 @@ func (s *SSHArtifactTransferService) UploadFileByPathWithPort(localPath, remoteP
 			return SSHTransferResult{}, ErrLocalSourceFileNotFound
 		}
 		logger.Error("上传失败：获取本地源文件信息失败", "local_path", normalizedLocal, "error", err)
-		return SSHTransferResult{}, fmt.Errorf("stat local source file failed: %w", err)
+		return SSHTransferResult{}, fmt.Errorf("获取本地源文件信息失败: %w", err)
 	}
 	if !info.Mode().IsRegular() {
 		logger.Warn("上传失败：本地源路径不是普通文件", "local_path", normalizedLocal, "mode", info.Mode().String())
@@ -1015,12 +1015,12 @@ func newSSHSFTPClient(server SSHServerConfig) (*sshSFTPClient, error) {
 
 	keyBytes, err := os.ReadFile(normalized.PrivateKeyPath)
 	if err != nil {
-		return nil, fmt.Errorf("read private key failed: %w", err)
+		return nil, fmt.Errorf("读取私钥失败: %w", err)
 	}
 
 	signer, err := ssh.ParsePrivateKey(keyBytes)
 	if err != nil {
-		return nil, fmt.Errorf("parse private key failed: %w", err)
+		return nil, fmt.Errorf("解析私钥失败: %w", err)
 	}
 
 	clientConfig := &ssh.ClientConfig{
@@ -1035,13 +1035,13 @@ func newSSHSFTPClient(server SSHServerConfig) (*sshSFTPClient, error) {
 	address := net.JoinHostPort(normalized.IP, strconv.Itoa(normalized.Port))
 	sshClient, err := ssh.Dial("tcp", address, clientConfig)
 	if err != nil {
-		return nil, fmt.Errorf("dial ssh failed: %w", err)
+		return nil, fmt.Errorf("建立 SSH 连接失败: %w", err)
 	}
 
 	sftpClient, err := sftp.NewClient(sshClient)
 	if err != nil {
 		_ = sshClient.Close()
-		return nil, fmt.Errorf("create sftp client failed: %w", err)
+		return nil, fmt.Errorf("创建 SFTP 客户端失败: %w", err)
 	}
 
 	return &sshSFTPClient{
@@ -1066,13 +1066,13 @@ func (c *sshSFTPClient) UploadFile(localPath, remotePath string) (int64, error) 
 
 	src, err := os.Open(filepath.Clean(localPath))
 	if err != nil {
-		return 0, fmt.Errorf("open local file failed: %w", err)
+		return 0, fmt.Errorf("打开本地文件失败: %w", err)
 	}
 	defer src.Close()
 
 	info, err := src.Stat()
 	if err != nil {
-		return 0, fmt.Errorf("stat local file failed: %w", err)
+		return 0, fmt.Errorf("获取本地文件信息失败: %w", err)
 	}
 	if !info.Mode().IsRegular() {
 		return 0, ErrLocalSourcePathNotRegularFile
@@ -1080,18 +1080,18 @@ func (c *sshSFTPClient) UploadFile(localPath, remotePath string) (int64, error) 
 
 	remoteDir := path.Dir(normalizedRemote)
 	if err := c.sftpClient.MkdirAll(remoteDir); err != nil {
-		return 0, fmt.Errorf("create remote directory failed: %w", err)
+		return 0, fmt.Errorf("创建远端目录失败: %w", err)
 	}
 
 	dst, err := c.sftpClient.Create(normalizedRemote)
 	if err != nil {
-		return 0, fmt.Errorf("create remote file failed: %w", err)
+		return 0, fmt.Errorf("创建远端文件失败: %w", err)
 	}
 	defer dst.Close()
 
 	written, err := io.Copy(dst, src)
 	if err != nil {
-		return 0, fmt.Errorf("write remote file failed: %w", err)
+		return 0, fmt.Errorf("写入远端文件失败: %w", err)
 	}
 
 	return written, nil
@@ -1119,23 +1119,23 @@ func (c *sshSFTPClient) DownloadFile(remotePath, localPath string) (int64, error
 		if isNotExistError(err) {
 			return 0, ErrRemoteArtifactNotFound
 		}
-		return 0, fmt.Errorf("open remote file failed: %w", err)
+		return 0, fmt.Errorf("打开远端文件失败: %w", err)
 	}
 	defer src.Close()
 
 	if err := os.MkdirAll(filepath.Dir(normalizedLocal), 0o755); err != nil {
-		return 0, fmt.Errorf("create local directory failed: %w", err)
+		return 0, fmt.Errorf("创建本地目录失败: %w", err)
 	}
 
 	dst, err := os.Create(normalizedLocal)
 	if err != nil {
-		return 0, fmt.Errorf("create local file failed: %w", err)
+		return 0, fmt.Errorf("创建本地文件失败: %w", err)
 	}
 	defer dst.Close()
 
 	written, err := io.Copy(dst, src)
 	if err != nil {
-		return 0, fmt.Errorf("write local file failed: %w", err)
+		return 0, fmt.Errorf("写入本地文件失败: %w", err)
 	}
 
 	return written, nil
@@ -1158,7 +1158,7 @@ func (c *sshSFTPClient) FileExists(remotePath string) (bool, error) {
 		if isNotExistError(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("stat remote file failed: %w", err)
+		return false, fmt.Errorf("获取远端文件信息失败: %w", err)
 	}
 	return true, nil
 }

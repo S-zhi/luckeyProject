@@ -105,7 +105,7 @@ func (c *DatasetController) UpdateDatasetStorageServers(ctx *gin.Context) {
 func (c *DatasetController) UploadDatasetFile(ctx *gin.Context) {
 	file, err := ctx.FormFile("file")
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "文件不能为空"})
 		return
 	}
 
@@ -140,7 +140,7 @@ func (c *DatasetController) UploadDatasetFile(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusCreated, gin.H{
-		"message":         "upload success",
+		"message":         "上传成功",
 		"file_name":       result.FileName,
 		"resolved_path":   result.ResolvedPath,
 		"saved_path":      result.SavedPath,
@@ -168,7 +168,7 @@ func (c *DatasetController) DownloadDatasetFile(ctx *gin.Context) {
 	dataset, err := c.datasetService.GetByID(ctx.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "record not found"})
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "记录不存在"})
 			return
 		}
 		writeHTTPError(ctx, err)
@@ -177,7 +177,7 @@ func (c *DatasetController) DownloadDatasetFile(ctx *gin.Context) {
 
 	fileName := strings.TrimSpace(dataset.FileName)
 	if fileName == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "dataset file_name is empty"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "数据集 file_name 为空"})
 		return
 	}
 	fileName = filepath.Base(fileName)
@@ -194,7 +194,7 @@ func (c *DatasetController) DownloadDatasetFile(ctx *gin.Context) {
 	}
 
 	if c.downloadService == nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "download service is nil"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "下载服务未初始化"})
 		return
 	}
 
@@ -223,7 +223,7 @@ func (c *DatasetController) DownloadDatasetFile(ctx *gin.Context) {
 
 	localPath = result.LocalPath
 	if !fileExists(localPath) {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "downloaded file not found in backend storage"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "后端存储中未找到已下载文件"})
 		return
 	}
 
@@ -273,7 +273,7 @@ func (c *DatasetController) UpdateDatasetMetadata(ctx *gin.Context) {
 func (c *DatasetController) DeleteDatasetByFileName(ctx *gin.Context) {
 	fileName := strings.TrimSpace(ctx.Query("file_name"))
 	if fileName == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "file_name is required"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "file_name 不能为空"})
 		return
 	}
 
@@ -284,7 +284,7 @@ func (c *DatasetController) DeleteDatasetByFileName(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"message":            "delete success",
+		"message":            "删除成功",
 		"file_name":          result.FileName,
 		"deleted_records":    result.DeletedRecords,
 		"local_file_deleted": result.LocalFileDeleted,

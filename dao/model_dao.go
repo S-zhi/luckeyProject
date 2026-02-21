@@ -59,14 +59,14 @@ func (d *ModelDAO) Save(ctx context.Context, model *entity2.Model) error {
 	normalizedStorageServer, err := encodeStorageServerValue(parseStorageServerValue(model.StorageServer))
 	if err != nil {
 		logger.Error("保存模型失败：存储服务标准化失败", "name", model.Name, "error", err)
-		return fmt.Errorf("save model failed: %w", err)
+		return fmt.Errorf("保存模型失败: %w", err)
 	}
 	model.StorageServer = normalizedStorageServer
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("保存模型失败：绑定上下文失败", "name", model.Name, "error", err)
-		return fmt.Errorf("save model failed: %w", err)
+		return fmt.Errorf("保存模型失败: %w", err)
 	}
 
 	if err := dbConn.Clauses(clause.OnConflict{
@@ -74,13 +74,13 @@ func (d *ModelDAO) Save(ctx context.Context, model *entity2.Model) error {
 		DoUpdates: clause.AssignmentColumns(updatableModelColumns()),
 	}).Create(model).Error; err != nil {
 		logger.Error("保存模型失败：创建或更新失败", "name", model.Name, "error", err)
-		return fmt.Errorf("save model failed: %w", err)
+		return fmt.Errorf("保存模型失败: %w", err)
 	}
 
 	if strings.TrimSpace(model.Name) != "" {
 		if err := dbConn.Where("name = ? AND version = ?", model.Name, model.Version).First(model).Error; err != nil {
 			logger.Error("保存模型失败：按唯一键回查失败", "name", model.Name, "version", model.Version, "error", err)
-			return fmt.Errorf("save model failed: %w", err)
+			return fmt.Errorf("保存模型失败: %w", err)
 		}
 	}
 
@@ -99,7 +99,7 @@ func (d *ModelDAO) GetStorageServersByID(ctx context.Context, id uint) ([]string
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("查询模型存储服务失败：绑定上下文失败", "id", id, "error", err)
-		return nil, fmt.Errorf("get model storage server failed: %w", err)
+		return nil, fmt.Errorf("获取模型存储服务失败: %w", err)
 	}
 
 	var row struct {
@@ -138,18 +138,18 @@ func (d *ModelDAO) UpdateStorageServersByID(ctx context.Context, id uint, action
 	encoded, err := encodeStorageServerValue(next)
 	if err != nil {
 		logger.Error("更新模型存储服务失败：编码失败", "id", id, "error", err)
-		return nil, fmt.Errorf("update model storage server failed: %w", err)
+		return nil, fmt.Errorf("更新模型存储服务失败: %w", err)
 	}
 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("更新模型存储服务失败：绑定上下文失败", "id", id, "error", err)
-		return nil, fmt.Errorf("update model storage server failed: %w", err)
+		return nil, fmt.Errorf("更新模型存储服务失败: %w", err)
 	}
 
 	if err := dbConn.Model(&entity2.Model{}).Where("id = ?", id).Update("storage_server", encoded).Error; err != nil {
 		logger.Error("更新模型存储服务失败：数据库更新失败", "id", id, "error", err)
-		return nil, fmt.Errorf("update model storage server failed: %w", err)
+		return nil, fmt.Errorf("更新模型存储服务失败: %w", err)
 	}
 
 	logger.Info("更新模型存储服务成功", "id", id, "action", action, "count", len(next))
@@ -185,7 +185,7 @@ func (d *ModelDAO) FindWeightNameByID(ctx context.Context, id uint) (string, err
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("查询模型权重文件名失败：绑定上下文失败", "id", id, "error", err)
-		return "", fmt.Errorf("find model weight_name failed: %w", err)
+		return "", fmt.Errorf("查询模型 weight_name 失败: %w", err)
 	}
 
 	var row struct {
@@ -227,13 +227,13 @@ func (d *ModelDAO) UpdateWeightSizeByWeightName(ctx context.Context, weightName 
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("更新模型权重大小失败：绑定上下文失败", "weight_name", name, "error", err)
-		return 0, fmt.Errorf("update model weight size failed: %w", err)
+		return 0, fmt.Errorf("更新模型权重大小失败: %w", err)
 	}
 
 	result := dbConn.Model(&entity2.Model{}).Where("weight_name = ?", name).Update("weight_size_mb", weightSizeMB)
 	if result.Error != nil {
 		logger.Error("更新模型权重大小失败：数据库更新失败", "weight_name", name, "weight_size_mb", weightSizeMB, "error", result.Error)
-		return 0, fmt.Errorf("update model weight size failed: %w", result.Error)
+		return 0, fmt.Errorf("更新模型权重大小失败: %w", result.Error)
 	}
 
 	logger.Info("更新模型权重大小成功", "weight_name", name, "weight_size_mb", weightSizeMB, "rows_affected", result.RowsAffected)
@@ -252,13 +252,13 @@ func (d *ModelDAO) DeleteByID(ctx context.Context, id uint) error {
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("删除模型失败：绑定上下文失败", "id", id, "error", err)
-		return fmt.Errorf("delete model by id failed: %w", err)
+		return fmt.Errorf("按 ID 删除模型失败: %w", err)
 	}
 
 	result := dbConn.Delete(&entity2.Model{}, id)
 	if result.Error != nil {
 		logger.Error("删除模型失败：数据库删除失败", "id", id, "error", result.Error)
-		return fmt.Errorf("delete model by id failed: %w", result.Error)
+		return fmt.Errorf("按 ID 删除模型失败: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		logger.Warn("删除模型未找到记录", "id", id)
@@ -283,13 +283,13 @@ func (d *ModelDAO) DeleteByWeightName(ctx context.Context, weightName string) (i
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("按权重文件名删除模型失败：绑定上下文失败", "weight_name", name, "error", err)
-		return 0, fmt.Errorf("delete model by weight_name failed: %w", err)
+		return 0, fmt.Errorf("按 weight_name 删除模型失败: %w", err)
 	}
 
 	result := dbConn.Where("weight_name = ?", name).Delete(&entity2.Model{})
 	if result.Error != nil {
 		logger.Error("按权重文件名删除模型失败：数据库删除失败", "weight_name", name, "error", result.Error)
-		return 0, fmt.Errorf("delete model by weight_name failed: %w", result.Error)
+		return 0, fmt.Errorf("按 weight_name 删除模型失败: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		logger.Warn("按权重文件名删除模型未找到记录", "weight_name", name)
@@ -312,7 +312,7 @@ func (d *ModelDAO) FindByID(ctx context.Context, id uint) (*entity2.Model, error
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("按ID查询模型失败：绑定上下文失败", "id", id, "error", err)
-		return nil, fmt.Errorf("find model by id failed: %w", err)
+		return nil, fmt.Errorf("按 ID 查询模型失败: %w", err)
 	}
 
 	var model entity2.Model
@@ -338,7 +338,7 @@ func (d *ModelDAO) FindByName(ctx context.Context, name string) (*entity2.Model,
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("按名称查询模型失败：绑定上下文失败", "name", trimmed, "error", err)
-		return nil, fmt.Errorf("find model by name failed: %w", err)
+		return nil, fmt.Errorf("按名称查询模型失败: %w", err)
 	}
 
 	var model entity2.Model
@@ -371,7 +371,7 @@ func (d *ModelDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]e
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("分页查询模型失败：绑定上下文失败", "error", err)
-		return nil, 0, fmt.Errorf("find models failed: %w", err)
+		return nil, 0, fmt.Errorf("查询模型列表失败: %w", err)
 	}
 
 	dbConn = dbConn.Model(&entity2.Model{})
@@ -441,7 +441,7 @@ func (d *ModelDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]e
 	err = dbConn.Count(&total).Error
 	if err != nil {
 		logger.Error("统计模型总数失败", "error", err)
-		return nil, 0, fmt.Errorf("count models failed: %w", err)
+		return nil, 0, fmt.Errorf("统计模型数量失败: %w", err)
 	}
 
 	// 5. 执行分页查询
@@ -449,7 +449,7 @@ func (d *ModelDAO) FindAll(ctx context.Context, params entity2.QueryParams) ([]e
 	err = dbConn.Order(orderStr).Offset(offset).Limit(limit).Find(&models).Error
 	if err != nil {
 		logger.Error("查询模型列表失败", "error", err)
-		return nil, 0, fmt.Errorf("query models failed: %w", err)
+		return nil, 0, fmt.Errorf("执行模型查询失败: %w", err)
 	}
 
 	logger.Info("分页查询模型成功", "total", total, "returned", len(models))
@@ -471,7 +471,7 @@ func (d *ModelDAO) UpdateMetadataByID(ctx context.Context, id uint, updates map[
 	dbConn, err := withContext(d.DB, ctx)
 	if err != nil {
 		logger.Error("更新模型元数据失败：绑定上下文失败", "id", id, "error", err)
-		return nil, fmt.Errorf("update model metadata failed: %w", err)
+		return nil, fmt.Errorf("更新模型元数据失败: %w", err)
 	}
 
 	var current entity2.Model
@@ -486,7 +486,7 @@ func (d *ModelDAO) UpdateMetadataByID(ctx context.Context, id uint, updates map[
 		if isDuplicateKeyError(result.Error) {
 			return nil, ErrAlreadyExists
 		}
-		return nil, fmt.Errorf("update model metadata failed: %w", result.Error)
+		return nil, fmt.Errorf("更新模型元数据失败: %w", result.Error)
 	}
 
 	var updated entity2.Model

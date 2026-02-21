@@ -19,12 +19,12 @@ type storageServerUpdatePayload struct {
 func parseUintPathParam(ctx *gin.Context, key string) (uint, error) {
 	raw := strings.TrimSpace(ctx.Param(key))
 	if raw == "" {
-		return 0, fmt.Errorf("%s is required", key)
+		return 0, fmt.Errorf("%s 不能为空", key)
 	}
 
 	value, err := strconv.ParseUint(raw, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("%s must be an unsigned integer", key)
+		return 0, fmt.Errorf("%s 必须是无符号整数", key)
 	}
 	return uint(value), nil
 }

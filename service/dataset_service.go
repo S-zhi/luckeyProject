@@ -216,14 +216,14 @@ func (s *DatasetService) DeleteByFileName(ctx context.Context, fileName string) 
 		if os.IsNotExist(statErr) {
 			return result, nil
 		}
-		return result, fmt.Errorf("stat local dataset file failed: %w", statErr)
+		return result, fmt.Errorf("获取本地数据集文件信息失败: %w", statErr)
 	}
 	if info.IsDir() {
 		return result, nil
 	}
 
 	if removeErr := os.Remove(localPath); removeErr != nil {
-		return result, fmt.Errorf("remove local dataset file failed: %w", removeErr)
+		return result, fmt.Errorf("删除本地数据集文件失败: %w", removeErr)
 	}
 	result.LocalFileDeleted = true
 	return result, nil

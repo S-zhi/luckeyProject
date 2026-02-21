@@ -12,12 +12,12 @@ import (
 )
 
 var (
-	ErrBaiduDownloaderNil          = errors.New("baidu downloader is nil")
-	ErrInvalidDownloadCategory     = errors.New("invalid download category")
-	ErrInvalidBaiduDownloadPath    = errors.New("invalid baidu remote path")
-	ErrInvalidBaiduDownloadFile    = errors.New("invalid baidu remote file name")
-	ErrInvalidLocalDownloadFile    = errors.New("invalid local download file")
-	ErrBaiduDownloadTargetRequired = errors.New("download target is required")
+	ErrBaiduDownloaderNil          = errors.New("百度网盘下载器未初始化")
+	ErrInvalidDownloadCategory     = errors.New("下载类别无效")
+	ErrInvalidBaiduDownloadPath    = errors.New("百度网盘远端路径无效")
+	ErrInvalidBaiduDownloadFile    = errors.New("百度网盘远端文件名无效")
+	ErrInvalidLocalDownloadFile    = errors.New("本地下载文件名无效")
+	ErrBaiduDownloadTargetRequired = errors.New("下载目标不能为空")
 )
 
 const (
@@ -79,7 +79,7 @@ func (d *BaiduPanDownloader) Download(remotePath, localPath string) error {
 	baidupanplus.NewBasicConfig(d.AccessToken, d.IsSVIP, d.LogPath)
 	downloadConfig := baidupanplus.NewDownloadFileConfig(normalizedLocal, normalizedRemote)
 	if err := baidupanplus.DownloadFileWithConfig(downloadConfig); err != nil {
-		return fmt.Errorf("download file from baidu pan failed: %w", err)
+		return fmt.Errorf("从百度网盘下载文件失败: %w", err)
 	}
 	return nil
 }
@@ -126,7 +126,7 @@ func (s *BaiduDownloadService) DownloadToLocal(remotePath, category, fileName st
 	}
 
 	if err := os.MkdirAll(filepath.Dir(localPath), 0o755); err != nil {
-		return BaiduDownloadResult{}, fmt.Errorf("create local download dir failed: %w", err)
+		return BaiduDownloadResult{}, fmt.Errorf("创建本地下载目录失败: %w", err)
 	}
 
 	if err := s.Downloader.Download(normalizedRemote, localPath); err != nil {
@@ -135,7 +135,7 @@ func (s *BaiduDownloadService) DownloadToLocal(remotePath, category, fileName st
 
 	info, err := os.Stat(localPath)
 	if err != nil {
-		return BaiduDownloadResult{}, fmt.Errorf("stat local downloaded file failed: %w", err)
+		return BaiduDownloadResult{}, fmt.Errorf("获取本地下载文件信息失败: %w", err)
 	}
 
 	return BaiduDownloadResult{

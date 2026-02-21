@@ -20,8 +20,8 @@ const (
 )
 
 var (
-	ErrBaiduPanAccessTokenRequired = errors.New("baidu pan access_token is required")
-	ErrInvalidBaiduRemoteDir       = errors.New("invalid baidu remote dir")
+	ErrBaiduPanAccessTokenRequired = errors.New("百度网盘 access_token 不能为空")
+	ErrInvalidBaiduRemoteDir       = errors.New("百度网盘远端目录无效")
 )
 
 // BaiduPanUploader wraps baidupansdk upload flow and serializes calls for the SDK's global config state.
@@ -73,7 +73,7 @@ func (u *BaiduPanUploader) Upload(localPath, remoteDir string) (string, error) {
 	baidupanplus.NewBasicConfig(u.AccessToken, u.IsSVIP, u.LogPath)
 	uploadConfig := baidupanplus.NewUploadFileConfig(localPath, remotePath)
 	if err := baidupanplus.UploadFileWithConfig(uploadConfig); err != nil {
-		return "", fmt.Errorf("upload file to baidu pan failed: %w", err)
+		return "", fmt.Errorf("上传文件到百度网盘失败: %w", err)
 	}
 
 	return remotePath, nil

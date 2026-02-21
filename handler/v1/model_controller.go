@@ -123,7 +123,7 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 	logger := handlerLogger().With("controller", "ModelController", "method", "UploadModelFile")
 	file, err := ctx.FormFile("file")
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "file is required"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "文件不能为空"})
 		return
 	}
 
@@ -244,7 +244,7 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 	}
 
 	resp := gin.H{
-		"message":         "upload success",
+		"message":         "上传成功",
 		"file_name":       result.FileName,
 		"resolved_path":   result.ResolvedPath,
 		"saved_path":      result.SavedPath,
@@ -354,7 +354,7 @@ func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKe
 func (c *ModelController) DeleteModelByFileName(ctx *gin.Context) {
 	fileName := strings.TrimSpace(ctx.Query("file_name"))
 	if fileName == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "file_name is required"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "file_name 不能为空"})
 		return
 	}
 
@@ -365,7 +365,7 @@ func (c *ModelController) DeleteModelByFileName(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"message":            "delete success",
+		"message":            "删除成功",
 		"file_name":          result.FileName,
 		"deleted_records":    result.DeletedRecords,
 		"local_file_deleted": result.LocalFileDeleted,
@@ -383,7 +383,7 @@ func (c *ModelController) DownloadModelFile(ctx *gin.Context) {
 	model, err := c.modelService.GetByID(ctx.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.JSON(http.StatusNotFound, gin.H{"error": "record not found"})
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "记录不存在"})
 			return
 		}
 		writeHTTPError(ctx, err)
@@ -392,7 +392,7 @@ func (c *ModelController) DownloadModelFile(ctx *gin.Context) {
 
 	fileName := strings.TrimSpace(model.WeightName)
 	if fileName == "" {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "model weight_name is empty"})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "模型 weight_name 为空"})
 		return
 	}
 	fileName = filepath.Base(fileName)
@@ -409,7 +409,7 @@ func (c *ModelController) DownloadModelFile(ctx *gin.Context) {
 	}
 
 	if c.downloadService == nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "download service is nil"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "下载服务未初始化"})
 		return
 	}
 
@@ -438,7 +438,7 @@ func (c *ModelController) DownloadModelFile(ctx *gin.Context) {
 
 	localPath = result.LocalPath
 	if !fileExists(localPath) {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "downloaded file not found in backend storage"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "后端存储中未找到已下载文件"})
 		return
 	}
 
@@ -539,7 +539,7 @@ func resolveDefaultSSHPrivateKeyPath(homeDir string) (string, error) {
 		return path, nil
 	}
 
-	return "", fmt.Errorf("no usable ssh private key found under %s (tried id_rsa, id_ed25519)", sshDir)
+	return "", fmt.Errorf("在 %s 下未找到可用 SSH 私钥（已尝试 id_rsa、id_ed25519）", sshDir)
 }
 
 func pickFirstNonEmpty(values ...string) string {

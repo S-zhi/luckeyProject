@@ -23,9 +23,9 @@ const (
 )
 
 var (
-	ErrInvalidArtifactCategory = errors.New("invalid artifact category")
-	ErrInvalidStorageTarget    = errors.New("invalid storage target")
-	ErrArtifactFileNameEmpty   = errors.New("artifact file_name is required")
+	ErrInvalidArtifactCategory = errors.New("制品类别无效")
+	ErrInvalidStorageTarget    = errors.New("存储目标无效")
+	ErrArtifactFileNameEmpty   = errors.New("制品 file_name 不能为空")
 )
 
 type ArtifactPaths struct {
