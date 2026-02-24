@@ -2,8 +2,8 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -51,19 +51,30 @@ func InitConfig() error {
 	if err != nil {
 		return fmt.Errorf("读取配置文件失败: %v", err)
 	}
-
 	AppConfig = &Config{}
 	err = yaml.Unmarshal(data, AppConfig)
 	if err != nil {
 		return fmt.Errorf("解析配置失败: %v", err)
 	}
 
-	if strings.TrimSpace(AppConfig.BaiduPan.LogPath) == "" {
-		AppConfig.BaiduPan.LogPath = "logs/baiduPanSDK.log"
+	return nil
+}
+
+func InitDeploy() {
+	// 初始化配置文件
+	if err := InitConfig(); err != nil {
+		log.Fatalf("初始化配置失败：%v", err)
+	}
+	// 初始化日志文件
+	InitLogger()
+	// 初始化 Mysql数据库
+	if err := InitDB(); err != nil {
+		log.Fatalf("初始化数据库失败：%v", err)
 	}
 
-	// 配置加载完成后，按配置路径初始化应用日志。
-	InitLogger()
+	// 初始化 Redis数据库
+	if err := InitRedis(); err != nil {
+		log.Fatalf("初始化Redis失败：%v", err)
+	}
 
-	return nil
 }

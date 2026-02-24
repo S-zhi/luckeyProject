@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"log/slog"
+	"lucky_project/utils"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,30 +19,17 @@ var (
 	loggerInitM sync.Mutex
 )
 
-func ensureLogDir(path string) error {
-	// 这里假设 path 是“文件路径”或“目录路径”
-	// 如果你 AppConfig.Log.Path 是目录，就 mkdir；如果是文件，就 mkdir 它的 dir
-	dir := path
-	if filepath.Ext(path) != "" { // 有扩展名，像 logs/app.log
-		dir = filepath.Dir(path)
-	}
-	return os.MkdirAll(dir, 0o755)
-}
-
 func buildLogger(logPath string) *slog.Logger {
-	if strings.TrimSpace(logPath) == "" {
-		logPath = "logs/app.log"
-	}
 
 	// 1) 确保目录存在
-	if err := ensureLogDir(logPath); err != nil {
+	if err := utils.EnsureDir(logPath); err != nil {
 		fmt.Printf("创建日志目录失败：%v\n", err)
 		return slog.Default()
 	}
 
 	// 2) 如果传进来的是目录，拼一个默认文件名
 	if filepath.Ext(logPath) == "" {
-		logPath = filepath.Join(logPath, "app.log")
+		logPath = filepath.Join(logPath, "server.log")
 	}
 
 	// 3) lumberjack 轮转
@@ -73,9 +61,6 @@ func buildLogger(logPath string) *slog.Logger {
 }
 
 func logPathFromConfig() string {
-	if AppConfig == nil {
-		return "logs/app.log"
-	}
 	return strings.TrimSpace(AppConfig.Log.Path)
 }
 
@@ -83,13 +68,12 @@ func logPathFromConfig() string {
 func InitLogger() *slog.Logger {
 	loggerInitM.Lock()
 	defer loggerInitM.Unlock()
-
 	AppLogger = buildLogger(logPathFromConfig())
 	return AppLogger
 }
 
-// EnsureLoggerInitialized 确保全局日志器可用；若未初始化则按当前配置初始化。
-func EnsureLoggerInitialized() *slog.Logger {
+// GetLogger 确保全局日志器可用；若未初始化则按当前配置初始化。
+func GetLogger() *slog.Logger {
 	loggerInitM.Lock()
 	defer loggerInitM.Unlock()
 

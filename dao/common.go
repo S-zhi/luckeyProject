@@ -21,21 +21,27 @@ var (
 )
 
 const (
+	// 默认分页参数
 	defaultPageSize = 10
-	maxPageSize     = 1000
+	// 最大分页参数
+	maxPageSize = 1000
 
 	StorageActionSet    = "set"
 	StorageActionAdd    = "add"
 	StorageActionRemove = "remove"
-	storageLabelLocal   = "本地存储"
+	// 本地存储
+	storageLabelLocal = "local"
+	// 百度网盘
+	storageBaiduNetDisk = "baidu_netdisk"
 )
 
+// daoLogger 获取Dao层日志器
 func daoLogger() *slog.Logger {
-	logger := config.EnsureLoggerInitialized()
+	logger := config.GetLogger()
 	if logger == nil {
 		return slog.Default()
 	}
-	return logger.With("layer", "dao")
+	return logger.With("所属文件夹", "dao")
 }
 
 // withContext 安全增加上下文
@@ -69,7 +75,7 @@ func normalizeQueryParams(params entity.QueryParams) entity.QueryParams {
 	return params
 }
 
-// 返回分页参数
+// pagination 返回分页参数 offset, limit
 func pagination(params entity.QueryParams) (offset, limit int) {
 	logger := daoLogger().With("func", "pagination")
 	p := normalizeQueryParams(params)
@@ -78,6 +84,7 @@ func pagination(params entity.QueryParams) (offset, limit int) {
 	return offset, limit
 }
 
+// normalizeStorageServers 对存储服务列表进行“标准化 + 去重 + 过滤无效项”
 func normalizeStorageServers(servers []string) []string {
 	logger := daoLogger().With("func", "normalizeStorageServers")
 	seen := make(map[string]struct{}, len(servers))
@@ -97,6 +104,7 @@ func normalizeStorageServers(servers []string) []string {
 	return result
 }
 
+// toStorageLabel 获取存储服务标签
 func toStorageLabel(raw string) (string, bool) {
 	value := strings.TrimSpace(raw)
 	if value == "" {
@@ -104,13 +112,16 @@ func toStorageLabel(raw string) (string, bool) {
 	}
 
 	switch strings.ToLower(value) {
-	case "baidu_netdisk", "baidu", "baidu-pan", "baidu_pan", "baidupan", "pan.baidu", "百度网盘":
-		return "", false
+	case storageBaiduNetDisk, "baidu", "baidu-pan", "baidu_pan", "baidupan", "pan.baidu", "百度网盘":
+		return storageBaiduNetDisk, true
+	case storageLabelLocal, "本地存储", "Local", "LOCAL":
+		return storageBaiduNetDisk, true
 	default:
-		return storageLabelLocal, true
+		return value, true
 	}
 }
 
+// parseStorageServerValue 解析存储服务为数组
 func parseStorageServerValue(raw string) []string {
 	logger := daoLogger().With("func", "parseStorageServerValue")
 	value := strings.TrimSpace(raw)
@@ -137,6 +148,7 @@ func parseStorageServerValue(raw string) []string {
 	return normalized
 }
 
+// encodeStorageServerValue 编码存储服务为JSON字符串
 func encodeStorageServerValue(servers []string) (string, error) {
 	logger := daoLogger().With("func", "encodeStorageServerValue")
 	normalized := normalizeStorageServers(servers)
@@ -149,6 +161,7 @@ func encodeStorageServerValue(servers []string) (string, error) {
 	return string(bytes), nil
 }
 
+// applyStorageServerAction 检查存储服务器是否存活，或者有无重新拉活的服务
 func applyStorageServerAction(current []string, action string, incoming []string) ([]string, error) {
 	logger := daoLogger().With("func", "applyStorageServerAction")
 	normalizedCurrent := normalizeStorageServers(current)
@@ -184,6 +197,7 @@ func applyStorageServerAction(current []string, action string, incoming []string
 	}
 }
 
+// isDuplicateKeyError 判断是否为重复键错误
 func isDuplicateKeyError(err error) bool {
 	if err == nil {
 		return false

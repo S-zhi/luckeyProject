@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"lucky_project/dao"
 	entity2 "lucky_project/entity"
-	"math"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -28,11 +28,11 @@ func NewModelService() *ModelService {
 	}
 }
 
+// CreateModel 创建新的模型记录
 func (s *ModelService) CreateModel(ctx context.Context, model *entity2.Model) error {
 	if model == nil {
 		return dao.ErrNilEntity
 	}
-	model.StorageServer = normalizeStorageServerField(model.StorageServer)
 	model.WeightName = deriveModelWeightName(model)
 	if model.WeightName == "" {
 		return dao.ErrNilEntity
@@ -45,6 +45,7 @@ func (s *ModelService) CreateModel(ctx context.Context, model *entity2.Model) er
 	return s.modelDAO.Save(ctx, model)
 }
 
+// GetAllModels 获取所有模型的分页结果
 func (s *ModelService) GetAllModels(ctx context.Context, params entity2.QueryParams) (entity2.PageResult, error) {
 	models, total, err := s.modelDAO.FindAll(ctx, params)
 	if err != nil {
@@ -59,26 +60,32 @@ func (s *ModelService) GetAllModels(ctx context.Context, params entity2.QueryPar
 	}, nil
 }
 
+// GetStorageServersByID 根据ID获取存储服务器列表
 func (s *ModelService) GetStorageServersByID(ctx context.Context, id uint) ([]string, error) {
 	return s.modelDAO.GetStorageServersByID(ctx, id)
 }
 
+// UpdateStorageServersByID 根据ID更新存储服务器列表
 func (s *ModelService) UpdateStorageServersByID(ctx context.Context, id uint, action string, servers []string) ([]string, error) {
 	return s.modelDAO.UpdateStorageServersByID(ctx, id, action, servers)
 }
 
+// FindByName 根据名称查找模型
 func (s *ModelService) FindByName(ctx context.Context, name string) (*entity2.Model, error) {
 	return s.modelDAO.FindByName(ctx, name)
 }
 
+// GetByID 根据ID获取模型
 func (s *ModelService) GetByID(ctx context.Context, id uint) (*entity2.Model, error) {
 	return s.modelDAO.FindByID(ctx, id)
 }
 
+// GetWeightNameByID 根据ID获取权重文件名
 func (s *ModelService) GetWeightNameByID(ctx context.Context, id uint) (string, error) {
 	return s.modelDAO.FindWeightNameByID(ctx, id)
 }
 
+// ResolveFilePathByID 根据ID解析文件路径
 func (s *ModelService) ResolveFilePathByID(ctx context.Context, id uint, storageTarget string) (string, error) {
 	if s.pathService == nil {
 		return "", ErrArtifactPathServiceNil
@@ -90,10 +97,12 @@ func (s *ModelService) ResolveFilePathByID(ctx context.Context, id uint, storage
 	return s.pathService.BuildPath(ArtifactCategoryWeights, storageTarget, fileName)
 }
 
+// GetFileNameByID 根据ID获取文件名
 func (s *ModelService) GetFileNameByID(ctx context.Context, id uint) (string, error) {
 	return s.GetWeightNameByID(ctx, id)
 }
 
+// UpdateModelMetadata 更新模型元数据
 func (s *ModelService) UpdateModelMetadata(ctx context.Context, id uint, updates map[string]interface{}) (*entity2.Model, error) {
 	if len(updates) == 0 {
 		return nil, dao.ErrNilEntity
@@ -122,6 +131,7 @@ func (s *ModelService) UpdateModelMetadata(ctx context.Context, id uint, updates
 	return s.modelDAO.UpdateMetadataByID(ctx, id, updates)
 }
 
+// SyncWeightSizeByFileName 同步权重文件大小
 func (s *ModelService) SyncWeightSizeByFileName(ctx context.Context, fileName string, sizeBytes int64) (int64, float64, error) {
 	name := deriveFileName(strings.TrimSpace(fileName), "")
 	if name == "" {
@@ -139,6 +149,7 @@ func (s *ModelService) SyncWeightSizeByFileName(ctx context.Context, fileName st
 	return affected, sizeMB, nil
 }
 
+// DeleteByFileName 根据文件名删除模型
 func (s *ModelService) DeleteByFileName(ctx context.Context, fileName string) (ModelDeleteByFileNameResult, error) {
 	name := deriveFileName(strings.TrimSpace(fileName), "")
 	if name == "" {
@@ -185,20 +196,20 @@ func (s *ModelService) DeleteByFileName(ctx context.Context, fileName string) (M
 	return result, nil
 }
 
+// deriveModelWeightName 推导模型权重文件名
 func deriveModelWeightName(model *entity2.Model) string {
 	if model == nil {
 		return ""
 	}
+	var array []string
 
-	if value := deriveFileName(model.WeightName, ""); value != "" {
-		return value
-	}
-	if value := deriveFileName(model.LegacyFileName, model.LegacyModelPath); value != "" {
-		return value
-	}
-	return ""
+	array = strings.Split(model.WeightName, ".")
+	model.WeightName = model.Name + "_v" + strconv.FormatFloat(model.Version, 'f', -1, 64) + "." + array[len(array)-1]
+	return model.WeightName
+
 }
 
+// resolveLocalWeightSizeMB 解析本地权重文件大小(MB)
 func (s *ModelService) resolveLocalWeightSizeMB(fileName string) (float64, bool) {
 	if s == nil || s.pathService == nil {
 		return 0, false
@@ -213,12 +224,4 @@ func (s *ModelService) resolveLocalWeightSizeMB(fileName string) (float64, bool)
 		return 0, false
 	}
 	return bytesToMB(info.Size()), true
-}
-
-func bytesToMB(sizeBytes int64) float64 {
-	if sizeBytes <= 0 {
-		return 0
-	}
-	value := float64(sizeBytes) / (1024 * 1024)
-	return math.Round(value*1000) / 1000
 }

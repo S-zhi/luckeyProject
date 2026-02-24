@@ -12,7 +12,7 @@ import (
 )
 
 func handlerLogger() *slog.Logger {
-	logger := config.EnsureLoggerInitialized()
+	logger := config.GetLogger()
 	if logger == nil {
 		return slog.Default().With("layer", "handler")
 	}

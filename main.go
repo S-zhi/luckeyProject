@@ -14,22 +14,8 @@ func main() {
 	if gin.Mode() == gin.DebugMode {
 		gin.SetMode(gin.ReleaseMode)
 	}
-
-	// 1. Initialize configuration
-	if err := config.InitConfig(); err != nil {
-		log.Fatalf("初始化配置失败：%v", err)
-	}
-
-	// 2. Initialize database
-	if err := config.InitDB(); err != nil {
-		log.Fatalf("初始化数据库失败：%v", err)
-	}
-
-	// 3. Initialize redis
-	if err := config.InitRedis(); err != nil {
-		log.Fatalf("初始化Redis失败：%v", err)
-	}
-
+	// 初始化依赖
+	config.InitDeploy()
 	// 4. Setup router
 	r := router.SetupRouter()
 

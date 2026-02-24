@@ -1,4 +1,6 @@
 package config
 
-// DefaultConfigFilePath 配置文件路径
-const DefaultConfigFilePath = "config/config.yaml"
+const (
+	// DefaultConfigFilePath 配置文件路径
+	DefaultConfigFilePath = "config/config.yaml"
+)
