@@ -87,7 +87,7 @@ func SetupRouter() *gin.Engine {
 		// Core server routes
 		coreServers := v1Group.Group("/core-servers")
 		{
-			coreServers.GET("", coreServerController.ListCoreServers)
+			coreServers.GET("", coreServerController.ListStorageServers)
 		}
 	}
 

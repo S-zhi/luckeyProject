@@ -19,12 +19,21 @@ func TestListCoreServersAPI(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	err := config.RedisClient.HSet(
+	err := config.RedisClient.Del(
 		ctx,
-		"core-servers",
+		"storage_service_list",
+		"rtx3090_ip",
+		"rtx3090_port",
 		"rtx3090",
-		`{"ip":"117.50.174.176","port":23}`,
 	).Err()
+	require.NoError(t, err)
+	err = config.RedisClient.RPush(ctx, "storage_service_list", "rtx3090").Err()
+	require.NoError(t, err)
+	err = config.RedisClient.Set(ctx, "rtx3090_ip", "117.50.174.176", 0).Err()
+	require.NoError(t, err)
+	err = config.RedisClient.Set(ctx, "rtx3090_port", "23", 0).Err()
+	require.NoError(t, err)
+	err = config.RedisClient.Set(ctx, "rtx3090", "running", 0).Err()
 	require.NoError(t, err)
 
 	w := performRequest(testRouter, http.MethodGet, "/v1/core-servers", nil)

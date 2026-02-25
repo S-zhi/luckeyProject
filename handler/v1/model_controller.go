@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"lucky_project/dao"
+	"lucky_project/dao/redisDao"
 	entity2 "lucky_project/entity"
 	"lucky_project/service"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -188,7 +190,7 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 	)
 
 	var coreTransfer *service.SSHTransferResult
-	var coreServer *service.CoreServer
+	var coreServer *redisDao.StorageService
 	if coreServerKey != "" {
 		logger.Info("请求上传到核心服务器", "core_server_key", coreServerKey)
 		server, transfer, err := c.uploadModelToCoreServer(ctx, coreServerKey, result.FileName, result.ResolvedPath)
@@ -212,7 +214,7 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 		coreTransfer = &transfer
 		logger.Info(
 			"上传到核心服务器成功",
-			"core_server_key", server.Key,
+			"core_server_key", server.Name,
 			"core_server_ip", server.IP,
 			"core_server_port", server.Port,
 			"remote_path", transfer.TargetPath,
@@ -262,7 +264,7 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 
 	if coreTransfer != nil && coreServer != nil {
 		resp["core_uploaded"] = true
-		resp["core_server_key"] = coreServer.Key
+		resp["core_server_key"] = coreServer.Name
 		resp["core_server_ip"] = coreServer.IP
 		resp["core_server_port"] = coreServer.Port
 		resp["core_remote_path"] = coreTransfer.TargetPath
@@ -273,10 +275,10 @@ func (c *ModelController) UploadModelFile(ctx *gin.Context) {
 	ctx.JSON(http.StatusCreated, resp)
 }
 
-func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKey, fileName, localPath string) (service.CoreServer, service.SSHTransferResult, error) {
+func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKey, fileName, localPath string) (redisDao.StorageService, service.SSHTransferResult, error) {
 	logger := handlerLogger().With("controller", "ModelController", "method", "uploadModelToCoreServer")
 	if c.sshUploadSvc == nil {
-		return service.CoreServer{}, service.SSHTransferResult{}, service.ErrSSHClientFactoryNil
+		return redisDao.StorageService{}, service.SSHTransferResult{}, service.ErrSSHClientFactoryNil
 	}
 
 	logger.Info(
@@ -288,61 +290,62 @@ func (c *ModelController) uploadModelToCoreServer(ctx *gin.Context, coreServerKe
 	coreServer, err := service.GetCoreServerByKey(ctx.Request.Context(), coreServerKey)
 	if err != nil {
 		logger.Error("解析核心服务器失败", "core_server_key", coreServerKey, "error", err)
-		return service.CoreServer{}, service.SSHTransferResult{}, err
+		return redisDao.StorageService{}, service.SSHTransferResult{}, err
 	}
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return service.CoreServer{}, service.SSHTransferResult{}, err
+		return redisDao.StorageService{}, service.SSHTransferResult{}, err
 	}
 	privateKeyPath := strings.TrimSpace(ctx.PostForm("ssh_private_key_path"))
 	if privateKeyPath == "" {
 		privateKeyPath, err = resolveDefaultSSHPrivateKeyPath(homeDir)
 		if err != nil {
 			logger.Error("解析SSH私钥路径失败", "error", err)
-			return service.CoreServer{}, service.SSHTransferResult{}, err
+			return redisDao.StorageService{}, service.SSHTransferResult{}, err
 		}
 	}
 	sshUser := strings.TrimSpace(ctx.PostForm("ssh_user"))
 	if sshUser == "" {
 		sshUser = service.DefaultSSHServerUser
 	}
-
-	if err := c.sshUploadSvc.SetServerConfig(coreServer.Key, service.SSHServerConfig{
-		Name:           coreServer.Key,
+	port, _ := strconv.Atoi(coreServer.Port)
+	if err := c.sshUploadSvc.SetServerConfig(coreServer.Name, service.SSHServerConfig{
+		Name:           coreServer.Name,
 		IP:             coreServer.IP,
-		Port:           coreServer.Port,
+		Port:           port,
 		User:           sshUser,
 		PrivateKeyPath: privateKeyPath,
 	}); err != nil {
-		logger.Error("设置SSH服务器配置失败", "core_server_key", coreServer.Key, "error", err)
-		return service.CoreServer{}, service.SSHTransferResult{}, err
+		logger.Error("设置SSH服务器配置失败", "core_server_key", coreServer.Name, "error", err)
+		return redisDao.StorageService{}, service.SSHTransferResult{}, err
 	}
 
 	pathService := service.NewArtifactPathService()
 	remotePath, err := pathService.BuildPath(service.ArtifactCategoryWeights, service.StorageTargetOtherLocal, fileName)
 	if err != nil {
 		logger.Error("构建远程路径失败", "file_name", fileName, "error", err)
-		return service.CoreServer{}, service.SSHTransferResult{}, err
+		return redisDao.StorageService{}, service.SSHTransferResult{}, err
 	}
 
 	logger.Info(
 		"开始通过SSH上传到核心服务器",
-		"core_server_key", coreServer.Key,
+		"core_server_key", coreServer.Name,
 		"core_server_ip", coreServer.IP,
 		"core_server_port", coreServer.Port,
 		"ssh_user", sshUser,
 		"private_key_path", privateKeyPath,
 		"remote_path", remotePath,
 	)
-	transfer, err := c.sshUploadSvc.UploadFileByPathWithPort(localPath, remotePath, coreServer.Key, coreServer.Port)
+	port, _ = strconv.Atoi(coreServer.Port)
+	transfer, err := c.sshUploadSvc.UploadFileByPathWithPort(localPath, remotePath, coreServer.Name, port)
 	if err != nil {
-		logger.Error("SSH上传失败", "core_server_key", coreServer.Key, "error", err)
-		return service.CoreServer{}, service.SSHTransferResult{}, err
+		logger.Error("SSH上传失败", "core_server_key", coreServer.Name, "error", err)
+		return redisDao.StorageService{}, service.SSHTransferResult{}, err
 	}
 	logger.Info(
 		"SSH上传完成",
-		"core_server_key", coreServer.Key,
+		"core_server_key", coreServer.Name,
 		"remote_path", transfer.TargetPath,
 		"bytes", transfer.Bytes,
 		"cost", transfer.Cost.String(),

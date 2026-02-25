@@ -2,17 +2,12 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"lucky_project/config"
+	"lucky_project/dao/redisDao"
 	"sort"
-	"strings"
-
-	"github.com/redis/go-redis/v9"
+	"strconv"
 )
-
-const coreServersHashKey = "core-servers"
 
 var ErrRedisNotInitialized = errors.New("Redis 客户端未初始化")
 var ErrCoreServerKeyRequired = errors.New("核心服务器 key 不能为空")
@@ -24,86 +19,55 @@ type CoreServer struct {
 	Port int    `json:"port"`
 }
 
-type coreServerValue struct {
-	IP   string `json:"ip"`
-	Port int    `json:"port"`
+func buildCoreServerFromStorageState(item redisDao.StorageService) (CoreServer, bool) {
+	port, _ := strconv.Atoi(item.Port)
+	return CoreServer{
+		Key:  item.Name,
+		IP:   item.IP,
+		Port: port,
+	}, true
 }
 
-func ListCoreServers(ctx context.Context) ([]CoreServer, error) {
-	if config.RedisClient == nil {
-		return nil, ErrRedisNotInitialized
-	}
+func ListStorageServers(ctx context.Context) ([]redisDao.StorageService, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-
-	rawMap, err := config.RedisClient.HGetAll(ctx, coreServersHashKey).Result()
-	if err != nil {
-		return nil, fmt.Errorf("hgetall %s 失败: %w", coreServersHashKey, err)
+	storageServices := redisDao.GetStorageStateList()
+	result := make([]redisDao.StorageService, 0, len(storageServices))
+	for _, item := range storageServices {
+		result = append(result, item)
 	}
-
-	keys := make([]string, 0, len(rawMap))
-	for key := range rawMap {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	result := make([]CoreServer, 0, len(keys))
-	for _, key := range keys {
-		raw := strings.TrimSpace(rawMap[key])
-		if raw == "" {
-			continue
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Name == config.StorageBackEndLabel {
+			return true
+		} else if result[j].Name == config.StorageBackEndLabel {
+			return false
+		} else if result[i].Name == config.StorageBaiduNetdiskLabel {
+			return true
+		} else if result[j].Name == config.StorageBaiduNetdiskLabel {
+			return false
+		} else {
+			return result[i].Name < result[j].Name
 		}
-
-		var value coreServerValue
-		if err := json.Unmarshal([]byte(raw), &value); err != nil {
-			return nil, fmt.Errorf("解析核心服务器失败（key=%s）: %w", key, err)
-		}
-
-		result = append(result, CoreServer{
-			Key:  key,
-			IP:   value.IP,
-			Port: value.Port,
-		})
-	}
+	})
 
 	return result, nil
 }
 
-func GetCoreServerByKey(ctx context.Context, key string) (CoreServer, error) {
-	if config.RedisClient == nil {
-		return CoreServer{}, ErrRedisNotInitialized
-	}
+func GetCoreServerByKey(ctx context.Context, name string) (redisDao.StorageService, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	trimmedKey := strings.TrimSpace(key)
-	if trimmedKey == "" {
-		return CoreServer{}, ErrCoreServerKeyRequired
-	}
-
-	raw, err := config.RedisClient.HGet(ctx, coreServersHashKey, trimmedKey).Result()
+	servers, err := ListStorageServers(ctx)
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
-			return CoreServer{}, ErrCoreServerNotFound
+		return redisDao.StorageService{}, err
+	}
+
+	for _, server := range servers {
+		if server.Name == name {
+			return server, nil
 		}
-		return CoreServer{}, fmt.Errorf("hget %s 失败（key=%s）: %w", coreServersHashKey, trimmedKey, err)
 	}
-
-	payload := strings.TrimSpace(raw)
-	if payload == "" {
-		return CoreServer{}, ErrCoreServerNotFound
-	}
-
-	var value coreServerValue
-	if err := json.Unmarshal([]byte(payload), &value); err != nil {
-		return CoreServer{}, fmt.Errorf("解析核心服务器失败（key=%s）: %w", trimmedKey, err)
-	}
-
-	return CoreServer{
-		Key:  trimmedKey,
-		IP:   value.IP,
-		Port: value.Port,
-	}, nil
+	return redisDao.StorageService{}, ErrCoreServerNotFound
 }

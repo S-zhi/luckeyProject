@@ -13,10 +13,10 @@ func NewCoreServerController() *CoreServerController {
 	return &CoreServerController{}
 }
 
-// ListCoreServers handles GET /v1/core-servers
+// ListStorageServers handles GET /v1/core-servers
 // 返回 list，每项仅包含 key/ip/port 三个字段。
-func (c *CoreServerController) ListCoreServers(ctx *gin.Context) {
-	result, err := service.ListCoreServers(ctx.Request.Context())
+func (c *CoreServerController) ListStorageServers(ctx *gin.Context) {
+	result, err := service.ListStorageServers(ctx.Request.Context())
 	if err != nil {
 		writeHTTPError(ctx, err)
 		return
