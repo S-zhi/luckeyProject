@@ -6,27 +6,11 @@ import (
 	"lucky_project/config"
 	"lucky_project/dao/redisDao"
 	"sort"
-	"strconv"
 )
 
 var ErrRedisNotInitialized = errors.New("Redis 客户端未初始化")
 var ErrCoreServerKeyRequired = errors.New("核心服务器 key 不能为空")
 var ErrCoreServerNotFound = errors.New("未找到核心服务器")
-
-type CoreServer struct {
-	Key  string `json:"key"`
-	IP   string `json:"ip"`
-	Port int    `json:"port"`
-}
-
-func buildCoreServerFromStorageState(item redisDao.StorageService) (CoreServer, bool) {
-	port, _ := strconv.Atoi(item.Port)
-	return CoreServer{
-		Key:  item.Name,
-		IP:   item.IP,
-		Port: port,
-	}, true
-}
 
 func ListStorageServers(ctx context.Context) ([]redisDao.StorageService, error) {
 	if ctx == nil {
