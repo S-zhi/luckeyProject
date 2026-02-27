@@ -88,6 +88,9 @@ func SetupRouter() *gin.Engine {
 		coreServers := v1Group.Group("/core-servers")
 		{
 			coreServers.GET("", coreServerController.ListStorageServers)
+			coreServers.POST("", coreServerController.CreateStorageServer)
+			coreServers.PATCH("/:key", coreServerController.UpdateStorageServer)
+			coreServers.DELETE("/:key", coreServerController.DeleteStorageServer)
 		}
 	}
 

@@ -9,13 +9,17 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var ErrRedisClientNotInitialized = errors.New("Redis 客户端未初始化")
+
+const storageServiceListKey = "storage_service_list"
+
 // getStorageServiceList 获取存储服务列表
 func getStorageServiceList() []string {
 	if config.RedisClient == nil {
 		return []string{}
 	}
 	ctx := context.Background()
-	storageServiceList := config.RedisClient.LRange(ctx, "storage_service_list", 0, config.MaxReturnStorageServicesNumber)
+	storageServiceList := config.RedisClient.LRange(ctx, storageServiceListKey, 0, config.MaxReturnStorageServicesNumber)
 	return storageServiceList.Val()
 }
 
@@ -76,28 +80,96 @@ func GetStorageStateList() []StorageService {
 }
 
 // AddStorageService 添加存储服务
-func AddStorageService(storageServiceName string, storageServiceIP string, storageServicePort string) {
+func AddStorageService(storageServiceName string, storageServiceIP string, storageServicePort string) error {
+	if config.RedisClient == nil {
+		return ErrRedisClientNotInitialized
+	}
 	ctx := context.Background()
 	storageServiceIPKey := storageServiceName + "_ip"
 	storageServicePortKey := storageServiceName + "_port"
 	storageServiceStateKey := storageServiceName
-	config.RedisClient.RPush(ctx, "storage_service_list", storageServiceName)
-	config.RedisClient.Set(ctx, storageServiceIPKey, storageServiceIP, 0)
-	config.RedisClient.Set(ctx, storageServicePortKey, storageServicePort, 0)
-	config.RedisClient.Set(ctx, storageServiceStateKey, "unknown", 0)
-	config.GetLogger().Info("添加存储服务完成: storageServiceName: %s , storageServiceIP:%s , storageServicePort:%s", storageServiceName, storageServiceIP, storageServicePort)
+
+	pipe := config.RedisClient.TxPipeline()
+	pipe.RPush(ctx, storageServiceListKey, storageServiceName)
+	pipe.Set(ctx, storageServiceIPKey, storageServiceIP, 0)
+	pipe.Set(ctx, storageServicePortKey, storageServicePort, 0)
+	pipe.Set(ctx, storageServiceStateKey, "unknown", 0)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return err
+	}
+
+	if logger := config.GetLogger(); logger != nil {
+		logger.Info(
+			"添加存储服务完成",
+			"storage_service_name", storageServiceName,
+			"storage_service_ip", storageServiceIP,
+			"storage_service_port", storageServicePort,
+		)
+	}
+	return nil
 }
 
 // UpdateStorageService 更新存储服务
-func UpdateStorageService(oldStorageServiceName string, storageServiceName string, storageServiceIP string, storageServicePort string) {
+func UpdateStorageService(oldStorageServiceName string, storageServiceName string, storageServiceIP string, storageServicePort string) error {
+	if config.RedisClient == nil {
+		return ErrRedisClientNotInitialized
+	}
 	ctx := context.Background()
 	storageServiceIPKey := storageServiceName + "_ip"
 	storageServicePortKey := storageServiceName + "_port"
 	storageServiceStateKey := storageServiceName
-	config.RedisClient.LRem(ctx, "storage_service_list", 1, oldStorageServiceName)
-	config.RedisClient.RPush(ctx, "storage_service_list", storageServiceName)
-	config.RedisClient.Set(ctx, storageServiceIPKey, storageServiceIP, 0)
-	config.RedisClient.Set(ctx, storageServicePortKey, storageServicePort, 0)
-	config.RedisClient.Set(ctx, storageServiceStateKey, "unknown", 0)
-	config.GetLogger().Info("更新存储服务完成: storageServiceName: %s , storageServiceIP:%s , storageServicePort:%s", storageServiceName, storageServiceIP, storageServicePort)
+	oldStorageServiceIPKey := oldStorageServiceName + "_ip"
+	oldStorageServicePortKey := oldStorageServiceName + "_port"
+	oldStorageServiceStateKey := oldStorageServiceName
+
+	pipe := config.RedisClient.TxPipeline()
+	pipe.LRem(ctx, storageServiceListKey, 0, oldStorageServiceName)
+	pipe.RPush(ctx, storageServiceListKey, storageServiceName)
+	pipe.Set(ctx, storageServiceIPKey, storageServiceIP, 0)
+	pipe.Set(ctx, storageServicePortKey, storageServicePort, 0)
+	pipe.Set(ctx, storageServiceStateKey, "unknown", 0)
+	if oldStorageServiceName != storageServiceName {
+		pipe.Del(ctx, oldStorageServiceIPKey, oldStorageServicePortKey, oldStorageServiceStateKey)
+	}
+	if _, err := pipe.Exec(ctx); err != nil {
+		return err
+	}
+
+	if logger := config.GetLogger(); logger != nil {
+		logger.Info(
+			"更新存储服务完成",
+			"old_storage_service_name", oldStorageServiceName,
+			"storage_service_name", storageServiceName,
+			"storage_service_ip", storageServiceIP,
+			"storage_service_port", storageServicePort,
+		)
+	}
+	return nil
+}
+
+// DeleteStorageService 删除存储服务
+func DeleteStorageService(storageServiceName string) error {
+	if config.RedisClient == nil {
+		return ErrRedisClientNotInitialized
+	}
+
+	ctx := context.Background()
+	storageServiceIPKey := storageServiceName + "_ip"
+	storageServicePortKey := storageServiceName + "_port"
+	storageServiceStateKey := storageServiceName
+
+	pipe := config.RedisClient.TxPipeline()
+	pipe.LRem(ctx, storageServiceListKey, 0, storageServiceName)
+	pipe.Del(ctx, storageServiceIPKey, storageServicePortKey, storageServiceStateKey)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return err
+	}
+
+	if logger := config.GetLogger(); logger != nil {
+		logger.Info(
+			"删除存储服务完成",
+			"storage_service_name", storageServiceName,
+		)
+	}
+	return nil
 }
