@@ -156,6 +156,83 @@ func TestModelAPI(t *testing.T) {
 		assert.Contains(t, w.Body.String(), "id is immutable")
 	})
 
+	t.Run("Get And Patch Model Storage Server Returns Metadata", func(t *testing.T) {
+		algorithmID := "storage_meta_algo"
+		description := "storage metadata response"
+		framework := "pytorch"
+		paper := "https://example.com/storage-paper"
+		paramsURL := "https://example.com/storage-params"
+		model := entity2.Model{
+			Name:          fmt.Sprintf("StorageMetaModel_%d", time.Now().UnixNano()),
+			Version:       2.34,
+			BaseModelID:   0,
+			AlgorithmID:   &algorithmID,
+			TaskType:      "detect",
+			Description:   &description,
+			Framework:     &framework,
+			WeightSizeMB:  66.789,
+			Paper:         &paper,
+			ParamsURL:     &paramsURL,
+			StorageServer: "backend",
+			WeightName:    fmt.Sprintf("storage_meta_%d.pt", time.Now().UnixNano()),
+		}
+		createBody, _ := json.Marshal(model)
+		createResp := performRequest(testRouter, "POST", "/v1/models", bytes.NewBuffer(createBody))
+		assert.Equal(t, http.StatusCreated, createResp.Code)
+
+		var created entity2.Model
+		err := json.Unmarshal(createResp.Body.Bytes(), &created)
+		assert.NoError(t, err)
+		assert.NotZero(t, created.ID)
+
+		getURL := fmt.Sprintf("/v1/models/%d/storage-server", created.ID)
+		getResp := performRequest(testRouter, "GET", getURL, nil)
+		assert.Equal(t, http.StatusOK, getResp.Code)
+
+		var getPayload map[string]interface{}
+		err = json.Unmarshal(getResp.Body.Bytes(), &getPayload)
+		assert.NoError(t, err)
+		assert.Equal(t, float64(created.ID), getPayload["id"])
+		assert.Equal(t, created.Name, getPayload["name"])
+		assert.Equal(t, created.TaskType, getPayload["task_type"])
+		storageServer, ok := getPayload["storage_server"].([]interface{})
+		assert.True(t, ok)
+		assert.NotEmpty(t, storageServer)
+		assert.Equal(t, "本地存储", storageServer[0])
+		assert.Equal(t, created.WeightName, getPayload["weight_name"])
+		assert.Equal(t, created.WeightName, getPayload["file_name"])
+		assert.Equal(t, "storage_meta_algo", getPayload["algorithm_id"])
+		assert.Equal(t, "storage_meta_algo", getPayload["impl_type"])
+		assert.NotEmpty(t, getPayload["create_time"])
+		assert.NotEmpty(t, getPayload["created_at"])
+		assert.InDelta(t, created.WeightSizeMB, getPayload["weight_size_mb"], 0.001)
+		assert.InDelta(t, created.WeightSizeMB, getPayload["size_mb"], 0.001)
+		_, hasStorageServers := getPayload["storage_servers"]
+		assert.False(t, hasStorageServers)
+
+		patchBody := map[string]interface{}{
+			"action":          "set",
+			"storage_servers": []string{"backend", "baidu_netdisk"},
+		}
+		patchBytes, _ := json.Marshal(patchBody)
+		patchResp := performRequest(testRouter, "PATCH", getURL, bytes.NewBuffer(patchBytes))
+		assert.Equal(t, http.StatusOK, patchResp.Code)
+
+		var patchPayload map[string]interface{}
+		err = json.Unmarshal(patchResp.Body.Bytes(), &patchPayload)
+		assert.NoError(t, err)
+		assert.Equal(t, float64(created.ID), patchPayload["id"])
+		assert.Equal(t, created.Name, patchPayload["name"])
+		updatedStorageServer, ok := patchPayload["storage_server"].([]interface{})
+		assert.True(t, ok)
+		assert.Equal(t, 2, len(updatedStorageServer))
+		assert.Equal(t, "本地存储", updatedStorageServer[0])
+		assert.Equal(t, "百度网盘", updatedStorageServer[1])
+		_, hasStorageServers = patchPayload["storage_servers"]
+		assert.False(t, hasStorageServers)
+		assert.Equal(t, created.WeightName, patchPayload["weight_name"])
+	})
+
 	t.Run("Download Model File From Backend", func(t *testing.T) {
 		algorithmID := "download_test_algo"
 		weightName := fmt.Sprintf("download_model_%d.pt", time.Now().UnixNano())
@@ -205,6 +282,37 @@ func TestModelAPI(t *testing.T) {
 		var result entity2.PageResult
 		json.Unmarshal(w.Body.Bytes(), &result)
 		assert.True(t, result.Total >= 1)
+	})
+
+	t.Run("List Models Storage Server Uses Backend Codes", func(t *testing.T) {
+		name := fmt.Sprintf("ListStorageCodeModel_%d", time.Now().UnixNano())
+		model := entity2.Model{
+			Name:          name,
+			Version:       1.00,
+			BaseModelID:   0,
+			WeightName:    fmt.Sprintf("%s_v1.onnx", name),
+			StorageServer: "[\"backend\",\"baidu_netdisk\"]",
+			WeightSizeMB:  12.345,
+			TaskType:      "detect",
+		}
+		createBody, _ := json.Marshal(model)
+		createResp := performRequest(testRouter, "POST", "/v1/models", bytes.NewBuffer(createBody))
+		assert.Equal(t, http.StatusCreated, createResp.Code)
+
+		listURL := fmt.Sprintf("/v1/models?page=1&page_size=10&name=%s", url.QueryEscape(name))
+		listResp := performRequest(testRouter, "GET", listURL, nil)
+		assert.Equal(t, http.StatusOK, listResp.Code)
+
+		var result struct {
+			Total int64                    `json:"total"`
+			List  []map[string]interface{} `json:"list"`
+		}
+		err := json.Unmarshal(listResp.Body.Bytes(), &result)
+		assert.NoError(t, err)
+		assert.True(t, result.Total >= 1)
+		assert.NotEmpty(t, result.List)
+		assert.Equal(t, name, result.List[0]["name"])
+		assert.Equal(t, "[\"backend\",\"baidu_netdisk\"]", result.List[0]["storage_server"])
 	})
 
 	// 3. 测试组合过滤

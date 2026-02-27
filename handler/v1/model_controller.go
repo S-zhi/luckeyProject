@@ -74,13 +74,19 @@ func (c *ModelController) GetModelStorageServers(ctx *gin.Context) {
 		return
 	}
 
+	model, err := c.modelService.GetByID(ctx.Request.Context(), id)
+	if err != nil {
+		writeHTTPError(ctx, err)
+		return
+	}
+
 	servers, err := c.modelService.GetStorageServersByID(ctx.Request.Context(), id)
 	if err != nil {
 		writeHTTPError(ctx, err)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, buildStorageServerResponse(id, servers))
+	ctx.JSON(http.StatusOK, buildModelStorageServerResponse(model, servers))
 }
 
 // UpdateModelStorageServers handles PATCH /v1/models/:id/storage-server
@@ -117,7 +123,12 @@ func (c *ModelController) UpdateModelStorageServers(ctx *gin.Context) {
 		"updated_servers", updated,
 		"note", "该接口仅更新元数据，不会向远程服务器上传文件",
 	)
-	ctx.JSON(http.StatusOK, buildStorageServerResponse(id, updated))
+	model, err := c.modelService.GetByID(ctx.Request.Context(), id)
+	if err != nil {
+		writeHTTPError(ctx, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, buildModelStorageServerResponse(model, updated))
 }
 
 // UploadModelFile handles POST /v1/models/upload

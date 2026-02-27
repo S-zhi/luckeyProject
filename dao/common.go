@@ -30,7 +30,7 @@ const (
 	StorageActionAdd    = "add"
 	StorageActionRemove = "remove"
 	// 本地存储
-	storageLabelLocal = "local"
+	storageLabelLocal = "backend"
 	// 百度网盘
 	storageBaiduNetDisk = "baidu_netdisk"
 )
@@ -115,7 +115,7 @@ func toStorageLabel(raw string) (string, bool) {
 	case storageBaiduNetDisk, "baidu", "baidu-pan", "baidu_pan", "baidupan", "pan.baidu", "百度网盘":
 		return storageBaiduNetDisk, true
 	case storageLabelLocal, "本地存储", "Local", "LOCAL":
-		return storageBaiduNetDisk, true
+		return storageLabelLocal, true
 	default:
 		return value, true
 	}

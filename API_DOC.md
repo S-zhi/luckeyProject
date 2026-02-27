@@ -166,8 +166,14 @@ curl -X POST "http://localhost:8080/v1/models/upload" \
     - `storage_servers`: 多个值数组（可选）
 - 返回:
   - `id`
-  - `storage_server`: 兼容字段，返回数组第一个值（无值时为空字符串）
-  - `storage_servers`: 完整数组
+  - `storage_server`: 映射后的完整数组（`backend`→`本地存储`，`baidu_netdisk`→`百度网盘`）
+  - `name` / `version` / `base_model_id`
+  - `algorithm_id` / `impl_type`（兼容别名）
+  - `task_type` / `description` / `framework`
+  - `weight_size_mb` / `size_mb`（兼容别名）
+  - `create_time` / `created_at`（兼容别名）
+  - `paper` / `params_url`
+  - `weight_name` / `file_name`（兼容别名）
 
 示例（追加一个存储服务）：
 ```bash
